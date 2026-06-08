@@ -1,4 +1,5 @@
 from pathlib import Path
+from kia.suggestions import suggest_defaults_from_rules
 
 
 def prompt_with_default(label: str, default: str = "") -> str:
@@ -53,64 +54,9 @@ def suggest_defaults_from_files(found_files: dict) -> dict:
     """
     Suggest naming-token defaults based on detected filenames.
 
-    This is intentionally simple for now. Later this can become a smarter
-    rule/config system.
+    Suggestion rules are loaded from kicad_import_suggestion_rules.json.
     """
-    all_names = []
-
-    for file_list in found_files.values():
-        for file_path in file_list:
-            all_names.append(file_path.name)
-
-    combined_names = " ".join(all_names).upper()
-
-    defaults = {
-        "family": "",
-        "role": "",
-        "mount": "",
-        "orient": "",
-        "size": "",
-        "pitch": "",
-        "base": "",
-        "feature": "",
-        "mpn": "",
-    }
-
-    if "SS-53000-003" in combined_names:
-        defaults.update({
-            "family": "HDMI",
-            "role": "RCPT",
-            "mount": "SMD",
-            "orient": "V",
-            "size": "19P",
-            "pitch": "P0.50",
-            "base": "SS53000",
-            "mpn": "SS-53000-003",
-        })
-    elif "SS-53000-002" in combined_names:
-        defaults.update({
-            "family": "HDMI",
-            "role": "RCPT",
-            "mount": "SMD",
-            "orient": "RA",
-            "size": "19P",
-            "pitch": "P0.50",
-            "base": "SS53000",
-            "mpn": "SS-53000-002",
-        })
-    elif "SS-53000-001" in combined_names:
-        defaults.update({
-            "family": "HDMI",
-            "role": "RCPT",
-            "mount": "SMD",
-            "orient": "RA",
-            "size": "19P",
-            "pitch": "P0.50",
-            "base": "SS53000",
-            "mpn": "SS-53000-001",
-        })
-
-    return defaults
+    return suggest_defaults_from_rules(found_files)
 
 
 def build_basename_from_prompts(config: dict, library_settings: dict, found_files: dict, override_defaults: dict | None = None) -> str:

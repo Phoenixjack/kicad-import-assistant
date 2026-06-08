@@ -53,13 +53,13 @@ CUSTOM_LIBRARIES/
 │  ├─ kicad_import_assistant_config.json
    ├─ kicad_import_naming_schema.json
    ├─ kicad_import_suggestion_rules.json
-   ├─ kia/importer.py
-│  └─ kia/
+   └─ kia/
 │     ├─ __init__.py
 │     ├─ config.py
 │     ├─ dialogs.py
 │     ├─ zip_scan.py
 │     ├─ naming.py
+      ├─ importer.py
 │     └─ manifest.py
 ```
 
