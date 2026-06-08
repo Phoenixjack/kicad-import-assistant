@@ -1,0 +1,14 @@
+{
+  "last_zip_folder": "%USERPROFILE%/Downloads",
+  "last_library_root": "%USERPROFILE%/Documents/KiCAD/CUSTOM_LIBRARIES",
+  "last_target_library": "TEST",
+  "path_variable": "CHRIS_KICAD_LIB",
+  "libraries": {
+    "TEST": {
+      "prefix": "CONN",
+      "footprint_dir": "_testlibrary.pretty",
+      "symbol_file": "CONNECTORS.kicad_sym",
+      "nickname": "_testlibrary"
+    }
+  }
+}

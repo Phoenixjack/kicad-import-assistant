@@ -1,0 +1,28 @@
+# Python
+__pycache__/
+*.pyc
+*.pyo
+*.pyd
+
+# Temporary/import output
+kicad_import_*/
+kicad_import_preview_manifest.csv
+*.bak
+
+# Local config / user-specific paths
+kicad_import_assistant_config.json
+
+# Old/manual backup versions
+OldVersions/
+
+# OS/editor junk
+.DS_Store
+Thumbs.db
+.vscode/
+.idea/
+
+# KiCad backup/autosave noise
+*-backups/
+*.kicad_pcb-bak
+*.sch-bak
+*.kicad_sch-bak
