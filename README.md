@@ -17,26 +17,12 @@ The tool is being built around a cautious workflow:
 
 Early development / work in progress.
 
-Current version: **V0.5.1**
-
-Current features:
-
-* GUI file picker for selecting a vendor ZIP file
-* GUI folder picker for selecting the custom KiCad library root
-* JSON config support
-* Remembers last ZIP folder, library root, and target library
-* Safely falls back if remembered folders no longer exist
-* Automatically handles accidentally selecting a `.pretty` folder as the library root
-* Extracts ZIP files to a temporary folder
-* Detects KiCad footprint, symbol, and 3D model files
-* Suggests naming defaults for known parts/rules
-* Prompts for naming tokens
-* Generates a standardized target basename
-* Creates a preview manifest CSV
-* Copies and renames selected footprint files into the target `.pretty` folder
-* Copies and renames selected STEP/STP model files into the target `.pretty` folder
-* Requires hard confirmation before modifying files
-* Started to build naming-convention JSON and validation rules
+Current version: V0.5.1
+Copies footprint/model files only after IMPORT confirmation
+Does not edit footprint internals yet
+Does not merge symbols yet
+Refuses overwrite
+Naming schema and suggestion rules are drafted but not fully wired in
 
 ## Why This Exists
 
@@ -65,6 +51,9 @@ CUSTOM_LIBRARIES/
 ├─ _TOOLS/
 │  ├─ kicad_import_assistant.py
 │  ├─ kicad_import_assistant_config.json
+   ├─ kicad_import_naming_schema.json
+   ├─ kicad_import_suggestion_rules.json
+   ├─ kia/importer.py
 │  └─ kia/
 │     ├─ __init__.py
 │     ├─ config.py
@@ -113,17 +102,22 @@ SS-53000-003 Exact manufacturer/orderable part number
 
 This tool is intentionally cautious.
 
-As of version 0.4, it does **not**:
+As of version V0.5.1, it can copy and rename selected footprint and STEP/STP model files into the configured target `.pretty` folder, but only after explicit confirmation.
 
-* copy files into the target library
-* rename actual library files
-* edit `.kicad_mod` files
-* edit `.kicad_sym` files
-* merge symbols
-* update 3D model paths
-* update footprint links
+It currently does **not**:
 
-It only generates a preview manifest.
+- edit `.kicad_mod` file contents
+- update internal footprint names
+- update 3D model references inside footprints
+- edit `.kicad_sym` files
+- merge symbols
+- update symbol `Footprint` properties
+- overwrite existing target files
+
+Before writing files, the tool requires the user to type:
+```text
+IMPORT
+```
 
 ## Planned Features
 
@@ -145,7 +139,7 @@ Future goals include:
 
 ## Requirements
 
-* Python 3.12 or newer recommended
+* Python 3.12 or newer required
 * Tkinter, included with most standard Python installs
 * Windows currently used for development/testing
 
