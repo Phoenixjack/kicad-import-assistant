@@ -164,7 +164,7 @@ python kicad_import_assistant.py
 
 ## Disclaimer
 
-This project was vibe-coded with ChatGPT as a learning/tool-building exercise. It should not be taken as a direct representation of my independent Python programming ability.
+This project was vibe-coded with ChatGPT as a learning/tool-building exercise. It reflects an iterative assisted-development workflow, not a claim of independent Python expertise.
 
 Use carefully. Back up your KiCad libraries before testing any version that modifies files.
 
