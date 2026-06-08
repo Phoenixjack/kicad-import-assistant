@@ -19,7 +19,7 @@ Early development / work in progress.
 
 Current version: V0.6.1
 - Copies footprint/model files only after IMPORT confirmation
-- Does not edit footprint internals yet
+- Updates copied footprint internal names
 - Does not merge symbols yet
 - Refuses overwrite
 - Naming schema and suggestion rules are drafted but not fully wired in
@@ -105,17 +105,9 @@ SS-53000-003 Exact manufacturer/orderable part number
 
 This tool is intentionally cautious.
 
-As of version V0.5.1, it can copy and rename selected footprint and STEP/STP model files into the configured target `.pretty` folder, but only after explicit confirmation.
+As of version 0.6.1, the tool can copy and rename selected footprint and STEP/STP model files into the configured target `.pretty` folder after explicit confirmation. It then attempts to update the copied footprint’s internal name, `Value` property, 3D model reference, and import/review metadata.
 
-It currently does **not**:
-
-- edit `.kicad_mod` file contents
-- update internal footprint names
-- update 3D model references inside footprints
-- edit `.kicad_sym` files
-- merge symbols
-- update symbol `Footprint` properties
-- overwrite existing target files
+It still does **not** merge symbols or update `.kicad_sym` libraries.
 
 Before writing files, the tool requires the user to type:
 ```text
