@@ -29,9 +29,15 @@ from pathlib import Path
 from kia.config import CONFIG_PATH, load_config, save_config
 from kia.dialogs import select_zip_file, select_library_root
 from kia.zip_scan import extract_zip_to_temp, find_import_files, print_import_file_summary
-from kia.naming import build_basename_from_prompts
-from kia.manifest import create_preview_manifest
-
+from kia.naming import build_basename_from_prompts, suggest_defaults_from_files, prompt_with_default
+from kia.manifest import create_preview_manifest, select_import_files
+from kia.importer import (
+    confirm_import,
+    copy_selected_import_files,
+    find_existing_files_by_mpn,
+    warn_about_existing_mpn_matches,
+    confirm_continue_after_duplicate_warning,
+)
 
 def main() -> None:
     """
@@ -77,18 +83,43 @@ def main() -> None:
     extract_root = extract_zip_to_temp(zip_path)
     found_files = find_import_files(extract_root)
     print_import_file_summary(found_files, extract_root)
+    
+    suggested_defaults = suggest_defaults_from_files(found_files)
 
-    basename = build_basename_from_prompts(config, library_settings, found_files)
+    print()
+    print("Early duplicate check.")
+    early_mpn = prompt_with_default("MPN for duplicate search", suggested_defaults.get("mpn", ""))
 
+    existing_matches = find_existing_files_by_mpn(
+        library_root=library_root,
+        library_settings=library_settings,
+        mpn=early_mpn,
+    )
+
+    warn_about_existing_mpn_matches(existing_matches, early_mpn)
+
+    if not confirm_continue_after_duplicate_warning(existing_matches):
+        print()
+        print("Import canceled before naming step.")
+        raise SystemExit
+    
+    basename = build_basename_from_prompts(
+        config,
+        library_settings,
+        found_files,
+        override_defaults={"mpn": early_mpn},
+    )
     print()
     print("Generated target basename:")
     print(f"  {basename}")
+
+    selected_files = select_import_files(found_files)
 
     confirm_manifest = input("Create preview manifest? [Y/n]: ").strip().lower()
 
     if confirm_manifest in ["", "y", "yes"]:
         create_preview_manifest(
-            found_files=found_files,
+            selected_files=selected_files,
             extract_root=extract_root,
             library_root=library_root,
             library_settings=library_settings,
@@ -97,13 +128,29 @@ def main() -> None:
     else:
         print("Preview manifest skipped.")
 
+    print()
+    print("V0.5 can now copy the selected footprint/model files.")
+    print("Symbols are still preview-only and will not be merged yet.")
+
+    if confirm_import():
+        copy_selected_import_files(
+            selected_files=selected_files,
+            library_root=library_root,
+            library_settings=library_settings,
+            basename=basename,
+        )
+    else:
+        print()
+        print("Import canceled. No files were copied.")
+
     save_config(config)
     print()
     print(f"Config saved: {CONFIG_PATH}")
 
     print()
-    print("Version 0.4 complete.")
-    print("No library files were modified.")
+    print("Version 0.5 complete.")
+    print("Footprint/model files may have been copied if IMPORT was confirmed.")
+    print("Symbols were not merged.")
 
 
 if __name__ == "__main__":

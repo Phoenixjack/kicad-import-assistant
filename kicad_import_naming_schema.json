@@ -1,0 +1,199 @@
+{
+  "schema_version": "0.1",
+  "field_order": [
+    "library",
+    "family",
+    "role",
+    "mount",
+    "orientation",
+    "size",
+    "pitch",
+    "base",
+    "feature",
+    "mpn"
+  ],
+  "required_fields": [
+    "library",
+    "family",
+    "role",
+    "mount",
+    "orientation",
+    "size",
+    "mpn"
+  ],
+  "optional_fields": [
+    "pitch",
+    "base",
+    "feature"
+  ],
+  "libraries": {
+    "CONN": {
+      "name": "Connectors",
+      "target_library_hint": "CONNECTORS",
+      "families": {
+        "BTB": "Board-to-board / mezzanine",
+        "USBA": "USB-A",
+        "USBB": "USB-B",
+        "USBC": "USB-C",
+        "HDMI": "HDMI",
+        "RJ45": "RJ45 / Ethernet modular jack",
+        "JST": "JST connector families",
+        "TERM": "Terminal block",
+        "RCA": "RCA connector",
+        "SMA": "SMA RF connector",
+        "UFL": "U.FL / IPEX-style RF connector",
+        "SIM": "SIM card socket/contact",
+        "SD": "SD / microSD socket",
+        "MIL": "MIL-style circular connector",
+        "HDR": "Generic header",
+        "FPC": "FFC/FPC connector",
+        "AUDIO": "Audio connector",
+        "BANANA": "Banana jack/plug",
+        "TESTPAD": "Test pad / probe pad"
+      }
+    },
+    "IC": {
+      "name": "Integrated circuits",
+      "target_library_hint": "ICs",
+      "families": {
+        "MCU": "Microcontroller",
+        "REG": "Regulator",
+        "ADC": "Analog-to-digital converter",
+        "AMP": "Amplifier",
+        "LOGIC": "Logic IC",
+        "MEM": "Memory",
+        "MUX": "Multiplexer / demultiplexer",
+        "COMMS": "Communication interface IC"
+      }
+    },
+    "GATE": {
+      "name": "Transistors / MOSFETs",
+      "target_library_hint": "TRANSISTORS_MOSFETS",
+      "families": {
+        "NMOS": "N-channel MOSFET",
+        "PMOS": "P-channel MOSFET",
+        "NPN": "NPN BJT",
+        "PNP": "PNP BJT",
+        "IGBT": "IGBT"
+      }
+    },
+    "DISC": {
+      "name": "Discrete components",
+      "target_library_hint": "DISCRETE_COMPONENTS",
+      "families": {
+        "R": "Resistor",
+        "C": "Capacitor",
+        "L": "Inductor",
+        "DIODE": "Diode",
+        "LED": "Light-emitting diode",
+        "FUSE": "Fuse",
+        "XTAL": "Crystal / resonator",
+        "TVS": "Transient voltage suppressor"
+      }
+    },
+    "GRAPHIC": {
+      "name": "Graphics",
+      "target_library_hint": "GRAPHICS",
+      "families": {
+        "LOGO": "Logo",
+        "ICON": "Icon",
+        "LABEL": "Board label",
+        "ART": "Decorative PCB art"
+      }
+    },
+    "VIS": {
+      "name": "Visualization-only models",
+      "target_library_hint": "VISUALIZATION",
+      "families": {
+        "WIRE": "Wire / cable visualization",
+        "SIM": "SIM card visualization",
+        "CARD": "Card / insert visualization",
+        "MECH": "Mechanical visualization"
+      }
+    }
+  },
+  "token_sets": {
+    "roles": {
+      "PLG": "Plug",
+      "RCPT": "Receptacle",
+      "HDR": "Header",
+      "SKT": "Socket",
+      "JACK": "Jack",
+      "TB": "Terminal block",
+      "PAD": "Contact pad",
+      "ADPT": "Adapter",
+      "MOD": "Module / assembled breakout board",
+      "BRK": "Breakout board"
+    },
+    "mounts": {
+      "SMD": "Surface mount",
+      "TH": "Through-hole",
+      "HYB": "Hybrid SMD/TH mounting",
+      "EDGE": "Board-edge connector/contact",
+      "PANEL": "Panel-mounted",
+      "WIRE": "Wire/cable-mounted",
+      "SILK": "Silkscreen",
+      "COPPER": "Copper",
+      "MASK": "Solder mask",
+      "FAB": "Fabrication layer"
+    },
+    "orientations": {
+      "V": "Vertical / top-entry",
+      "RA": "Right-angle / side-entry",
+      "STR": "Straight / inline",
+      "EDGE": "Edge-facing / edge-launch",
+      "NA": "Not applicable"
+    },
+    "common_pitches": {
+      "P0.40": "0.40 mm",
+      "P0.50": "0.50 mm",
+      "P0.635": "0.635 mm / 0.025 in",
+      "P0.80": "0.80 mm",
+      "P1.00": "1.00 mm",
+      "P1.25": "1.25 mm",
+      "P1.27": "1.27 mm / 0.050 in",
+      "P1.50": "1.50 mm",
+      "P2.00": "2.00 mm",
+      "P2.50": "2.50 mm",
+      "P2.54": "2.54 mm / 0.100 in",
+      "P3.50": "3.50 mm",
+      "P3.81": "3.81 mm",
+      "P5.00": "5.00 mm",
+      "P5.08": "5.08 mm / 0.200 in"
+    }
+  },
+  "normalization": {
+    "space_replacement": "-",
+    "omit_empty_optional_fields": true,
+    "pitch": {
+      "preferred_output_unit": "mm",
+      "output_prefix": "P",
+      "default_metric_decimal_places": 2,
+      "allowed_metric_decimal_places": [2, 3],
+      "allowed_inch_decimal_places": [3],
+      "accepted_metric_suffixes": ["mm"],
+      "accepted_inch_suffixes": ["in", "inch"],
+      "accepted_mil_suffixes": ["mil", "mils"]
+    }
+  },
+  "validation": {
+    "pitch": {
+      "metric_regex": "^P\\d+\\.\\d{2,3}$",
+      "inch_input_regex": "^\\d+\\.\\d{3}(in|inch)$",
+      "mil_input_regex": "^\\d+(\\.\\d+)?mils?$",
+      "examples": ["P0.50", "P1.25", "P2.54", "P0.635"]
+    },
+    "size": {
+      "allowed_regex": [
+        "^\\d+x\\d+$",
+        "^\\d+P$",
+        "^8P8C$"
+      ],
+      "examples": ["1x06", "2x20", "24P", "8P8C"]
+    },
+    "mpn": {
+      "disallowed_characters": ["\\", "/", ":", "*", "?", "\"", "<", ">", "|"],
+      "space_replacement": "-"
+    }
+  }
+}

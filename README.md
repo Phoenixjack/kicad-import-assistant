@@ -17,7 +17,7 @@ The tool is being built around a cautious workflow:
 
 Early development / work in progress.
 
-Current version: **0.4**
+Current version: **V0.5.1**
 
 Current features:
 
@@ -33,7 +33,10 @@ Current features:
 * Prompts for naming tokens
 * Generates a standardized target basename
 * Creates a preview manifest CSV
-* Does **not** modify KiCad library files yet
+* Copies and renames selected footprint files into the target `.pretty` folder
+* Copies and renames selected STEP/STP model files into the target `.pretty` folder
+* Requires hard confirmation before modifying files
+* Started to build naming-convention JSON and validation rules
 
 ## Why This Exists
 

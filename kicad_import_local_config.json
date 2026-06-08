@@ -1,0 +1,23 @@
+{
+  "last_zip_folder": "%USERPROFILE%/Downloads",
+  "last_library_root": "%USERPROFILE%/Documents/KiCAD/CUSTOM_LIBRARIES",
+  "last_target_library": "TEST",
+  "path_variable": "CHRIS_KICAD_LIB",
+  "libraries": {
+    "TEST": {
+      "prefix": "CONN",
+      "footprint_dir": "_testlibrary.pretty",
+      "symbol_file": "CONNECTORS.kicad_sym",
+      "nickname": "_testlibrary"
+    },
+    "CONNECTORS": {
+      "prefix": "CONN",
+      "footprint_dir": "CONNECTORS.pretty",
+      "symbol_file": "CONNECTORS.kicad_sym",
+      "nickname": "CONNECTORS"
+    }
+  },
+  "recent_values": {
+    "pitch": ["P0.50", "P2.54", "P1.25"]
+  }
+}

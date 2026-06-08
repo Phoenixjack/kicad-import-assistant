@@ -1,0 +1,50 @@
+{
+  "rules_version": "0.1",
+  "rules": [
+    {
+      "name": "HDMI SS53000 series",
+      "match_any": ["SS-53000", "SS_53000", "SS53000"],
+      "defaults": {
+        "library": "CONN",
+        "family": "HDMI",
+        "role": "RCPT",
+        "mount": "SMD",
+        "size": "19P",
+        "pitch": "P0.50",
+        "base": "SS53000"
+      },
+      "extract": {
+        "mpn": "(SS[-_ ]?53000[-_ ]?\\d{3})"
+      },
+      "notes": "Orientation varies by exact part; user should verify V vs RA."
+    },
+    {
+      "name": "USB-C connector generic hint",
+      "match_any": ["USB-C", "USBC", "TYPE-C", "TYPEC"],
+      "defaults": {
+        "library": "CONN",
+        "family": "USBC",
+        "role": "RCPT",
+        "size": "24P"
+      },
+      "extract": {
+        "mpn": ""
+      },
+      "notes": "Mount/orientation vary widely; user should verify."
+    },
+    {
+      "name": "RJ45 generic hint",
+      "match_any": ["RJ45", "8P8C"],
+      "defaults": {
+        "library": "CONN",
+        "family": "RJ45",
+        "role": "JACK",
+        "size": "8P8C"
+      },
+      "extract": {
+        "mpn": ""
+      },
+      "notes": "Shielding, magnetics, LED options, and orientation require user review."
+    }
+  ]
+}

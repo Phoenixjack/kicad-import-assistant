@@ -39,8 +39,28 @@ def choose_single_file(files: list[Path], file_type_label: str) -> Path | None:
         print("Choice out of range.")
 
 
+def select_import_files(found_files: dict) -> dict:
+    """
+    Select one footprint, one symbol, and one 3D model from detected files.
+
+    If only one file exists in a category, it is selected automatically.
+    """
+    selected_files = {
+        "footprint": choose_single_file(found_files.get("footprints", []), "footprint"),
+        "symbol": choose_single_file(found_files.get("symbols", []), "symbol"),
+        "model": choose_single_file(found_files.get("models", []), "3D model"),
+    }
+
+    if not any(selected_files.values()):
+        print()
+        print("ERROR: No footprint, symbol, or model files were selected.")
+        raise SystemExit
+
+    return selected_files
+
+
 def create_preview_manifest(
-    found_files: dict,
+    selected_files: dict,
     extract_root: Path,
     library_root: Path,
     library_settings: dict,
@@ -50,7 +70,7 @@ def create_preview_manifest(
     Create a preview manifest CSV.
 
     This does not modify the KiCad library.
-    It only records what would happen in a future import step.
+    It only records what would happen in an import step.
     """
     footprint_dir_name = library_settings.get("footprint_dir", "")
     symbol_file_name = library_settings.get("symbol_file", "")
@@ -59,9 +79,9 @@ def create_preview_manifest(
     target_footprint_dir = library_root / footprint_dir_name
     target_symbol_file = target_footprint_dir / symbol_file_name
 
-    selected_footprint = choose_single_file(found_files.get("footprints", []), "footprint")
-    selected_symbol = choose_single_file(found_files.get("symbols", []), "symbol")
-    selected_model = choose_single_file(found_files.get("models", []), "3D model")
+    selected_footprint = selected_files.get("footprint")
+    selected_symbol = selected_files.get("symbol")
+    selected_model = selected_files.get("model")
 
     manifest_rows = []
 
@@ -80,7 +100,7 @@ def create_preview_manifest(
             "source_file": str(selected_model.relative_to(extract_root)),
             "target_file": str(target_footprint_dir / f"{basename}.step"),
             "action": "COPY_RENAME_PENDING",
-            "notes": "Future step: normalize .stp/.STEP/.STP to .step",
+            "notes": "V0.5: copy/rename model; future step may update references",
         })
 
     if selected_symbol:
@@ -91,11 +111,6 @@ def create_preview_manifest(
             "action": "MERGE_PENDING",
             "notes": f"Future step: update symbol name and Footprint property to {nickname}:{basename}",
         })
-
-    if not manifest_rows:
-        print()
-        print("ERROR: No footprint, symbol, or model files were selected for manifest.")
-        raise SystemExit
 
     manifest_path = extract_root / "kicad_import_preview_manifest.csv"
 

@@ -24,6 +24,31 @@ def clean_name_token(value: str) -> str:
     return value.strip().replace(" ", "-")
 
 
+def normalize_pitch_token(value: str) -> str:
+    """
+    Normalize pitch tokens.
+
+    Examples:
+    0.50    -> P0.50
+    P0.50   -> P0.50
+    p0.50   -> P0.50
+    2.54mm  -> P2.54
+    P2.54mm -> P2.54
+    """
+    cleaned = value.strip()
+
+    if not cleaned:
+        return ""
+
+    cleaned = cleaned.replace(" ", "")
+    cleaned = cleaned.replace("mm", "").replace("MM", "")
+
+    if cleaned.upper().startswith("P"):
+        cleaned = cleaned[1:]
+
+    return f"P{cleaned}"
+
+
 def suggest_defaults_from_files(found_files: dict) -> dict:
     """
     Suggest naming-token defaults based on detected filenames.
@@ -58,6 +83,7 @@ def suggest_defaults_from_files(found_files: dict) -> dict:
             "mount": "SMD",
             "orient": "V",
             "size": "19P",
+            "pitch": "P0.50",
             "base": "SS53000",
             "mpn": "SS-53000-003",
         })
@@ -68,6 +94,7 @@ def suggest_defaults_from_files(found_files: dict) -> dict:
             "mount": "SMD",
             "orient": "RA",
             "size": "19P",
+            "pitch": "P0.50",
             "base": "SS53000",
             "mpn": "SS-53000-002",
         })
@@ -78,6 +105,7 @@ def suggest_defaults_from_files(found_files: dict) -> dict:
             "mount": "SMD",
             "orient": "RA",
             "size": "19P",
+            "pitch": "P0.50",
             "base": "SS53000",
             "mpn": "SS-53000-001",
         })
@@ -85,7 +113,7 @@ def suggest_defaults_from_files(found_files: dict) -> dict:
     return defaults
 
 
-def build_basename_from_prompts(config: dict, library_settings: dict, found_files: dict) -> str:
+def build_basename_from_prompts(config: dict, library_settings: dict, found_files: dict, override_defaults: dict | None = None) -> str:
     """
     Ask the user for naming-convention tokens and build the target basename.
 
@@ -93,6 +121,8 @@ def build_basename_from_prompts(config: dict, library_settings: dict, found_file
     LIB_FAMILY_ROLE_MOUNT_ORIENT_SIZE[_PITCH][_BASE][_FEATURE]_MPN
     """
     suggested = suggest_defaults_from_files(found_files)
+    if override_defaults:
+        suggested.update(override_defaults)
 
     print()
     print("Enter naming tokens.")
@@ -109,7 +139,7 @@ def build_basename_from_prompts(config: dict, library_settings: dict, found_file
     mount = prompt_with_default("Mount", suggested["mount"])
     orient = prompt_with_default("Orientation", suggested["orient"])
     size = prompt_with_default("Size", suggested["size"])
-    pitch = prompt_with_default("Pitch", suggested["pitch"])
+    pitch = normalize_pitch_token(prompt_with_default("Pitch", suggested["pitch"]))
     base = prompt_with_default("Base / series", suggested["base"])
     feature = prompt_with_default("Feature", suggested["feature"])
     mpn = prompt_with_default("MPN", suggested["mpn"])
