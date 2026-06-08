@@ -23,6 +23,8 @@ Future goals:
 - Add batch/manifest mode
 """
 
+APP_VERSION = "0.6.1"
+
 import tkinter as tk
 from pathlib import Path
 
@@ -43,6 +45,7 @@ def main() -> None:
     """
     Main script entry point.
     """
+    
     config = load_config()
 
     root = tk.Tk()
@@ -55,6 +58,7 @@ def main() -> None:
     library_settings = config.get("libraries", {}).get(target_library, {})
 
     print()
+    print(f"Assistant version: {APP_VERSION}")
     print("Selected import settings:")
     print(f"ZIP:             {zip_path}")
     print(f"Library root:    {library_root}")
@@ -129,7 +133,8 @@ def main() -> None:
         print("Preview manifest skipped.")
 
     print()
-    print("V0.5 can now copy the selected footprint/model files.")
+    print()
+    print(f"V{APP_VERSION} can now copy selected footprint/model files and update the copied footprint.")
     print("Symbols are still preview-only and will not be merged yet.")
 
     if confirm_import():
@@ -137,7 +142,9 @@ def main() -> None:
             selected_files=selected_files,
             library_root=library_root,
             library_settings=library_settings,
+            config=config,
             basename=basename,
+            app_version=APP_VERSION,
         )
     else:
         print()
@@ -148,8 +155,10 @@ def main() -> None:
     print(f"Config saved: {CONFIG_PATH}")
 
     print()
-    print("Version 0.5 complete.")
+    print(f"Version {APP_VERSION} complete.")
     print("Footprint/model files may have been copied if IMPORT was confirmed.")
+    print("The script attempted to update copied footprint internals.")
+    print("Imported footprints were marked with review metadata properties.")
     print("Symbols were not merged.")
 
 

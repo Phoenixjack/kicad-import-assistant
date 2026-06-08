@@ -17,12 +17,15 @@ The tool is being built around a cautious workflow:
 
 Early development / work in progress.
 
-Current version: V0.5.1
-Copies footprint/model files only after IMPORT confirmation
-Does not edit footprint internals yet
-Does not merge symbols yet
-Refuses overwrite
-Naming schema and suggestion rules are drafted but not fully wired in
+Current version: V0.6.1
+- Copies footprint/model files only after IMPORT confirmation
+- Does not edit footprint internals yet
+- Does not merge symbols yet
+- Refuses overwrite
+- Naming schema and suggestion rules are drafted but not fully wired in
+- Adds hidden import/review metadata fields to copied footprints
+- Records importer version in the copied footprint
+- Remembers recently used naming-token values for future prompts
 
 ## Why This Exists
 

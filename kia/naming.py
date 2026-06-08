@@ -59,6 +59,46 @@ def suggest_defaults_from_files(found_files: dict) -> dict:
     return suggest_defaults_from_rules(found_files)
 
 
+def get_recent_default(config: dict, field_name: str) -> str:
+    """
+    Return the most recently used value for a naming field, if available.
+    """
+    recent_values = config.get("recent_values", {})
+    values = recent_values.get(field_name, [])
+
+    if not values:
+        return ""
+
+    return values[0]
+
+
+def remember_recent_value(config: dict, field_name: str, value: str, max_count: int = 10) -> None:
+    """
+    Store a recently used naming value in config.
+
+    Most recent value is kept at the front of the list.
+    """
+    cleaned = value.strip()
+
+    if not cleaned:
+        return
+
+    if "recent_values" not in config:
+        config["recent_values"] = {}
+
+    if field_name not in config["recent_values"]:
+        config["recent_values"][field_name] = []
+
+    values = config["recent_values"][field_name]
+
+    if cleaned in values:
+        values.remove(cleaned)
+
+    values.insert(0, cleaned)
+
+    del values[max_count:]
+
+
 def build_basename_from_prompts(config: dict, library_settings: dict, found_files: dict, override_defaults: dict | None = None) -> str:
     """
     Ask the user for naming-convention tokens and build the target basename.
@@ -70,6 +110,11 @@ def build_basename_from_prompts(config: dict, library_settings: dict, found_file
     if override_defaults:
         suggested.update(override_defaults)
 
+    # Use recent values only when suggestion rules did not provide a value.
+    for field_name in ["family", "role", "mount", "orient", "size", "pitch", "base", "feature"]:
+        if not suggested.get(field_name, ""):
+            suggested[field_name] = get_recent_default(config, field_name)
+        
     print()
     print("Enter naming tokens.")
     print("Press Enter to accept defaults where shown.")
@@ -109,7 +154,18 @@ def build_basename_from_prompts(config: dict, library_settings: dict, found_file
             print(f"  - {name}")
         print()
         raise SystemExit
-
+        
+    # Remember recent values after validation succeeds.
+    # Do not remember MPN; it is part-specific.
+    remember_recent_value(config, "family", family)
+    remember_recent_value(config, "role", role)
+    remember_recent_value(config, "mount", mount)
+    remember_recent_value(config, "orient", orient)
+    remember_recent_value(config, "size", size)
+    remember_recent_value(config, "pitch", pitch)
+    remember_recent_value(config, "base", base)
+    remember_recent_value(config, "feature", feature)
+    
     tokens = [
         prefix,
         family,
