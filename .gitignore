@@ -9,7 +9,8 @@ kicad_import_*/
 kicad_import_preview_manifest.csv
 *.bak
 
-# Local config / user-specific paths
+# Local/user-specific config
+kicad_import_local_config.json
 kicad_import_assistant_config.json
 
 # Old/manual backup versions
