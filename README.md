@@ -2,19 +2,20 @@
 
 KiCad Import Assistant is a small Python utility for importing vendor-provided KiCad footprints, symbols, and 3D models into a custom KiCad library structure.
 
-The project is being built around a cautious import workflow:
+The project is built around a cautious import workflow:
 
 1. Select a vendor ZIP file.
 2. Select a custom KiCad library root folder.
 3. Extract the ZIP to a temporary folder.
 4. Detect `.kicad_mod`, `.kicad_sym`, `.step`, and `.stp` files.
-5. Suggest naming defaults from JSON-based rules.
-6. Prompt for naming-convention fields.
-7. Generate a standardized target basename.
-8. Create a preview manifest.
-9. Require explicit confirmation before copying files.
-10. Copy and rename selected footprint/model files.
-11. Update copied footprint metadata where possible.
+5. Resolve the target footprint/model folder and symbol library path.
+6. Suggest naming defaults from JSON-based rules.
+7. Prompt for naming-convention fields using schema-driven token menus.
+8. Generate a standardized target basename.
+9. Optionally create a preview manifest.
+10. Require explicit confirmation before copying files.
+11. Copy and rename selected footprint/model files.
+12. Update copied footprint metadata where possible.
 
 ## Project Status
 
@@ -27,16 +28,18 @@ Current features:
 * GUI file picker for selecting a vendor ZIP file
 * GUI folder picker for selecting the custom KiCad library root
 * JSON config support
-* Remembers last ZIP folder, library root, and target library
+* Remembers last ZIP folder, library root, target library, and recent naming-token values
 * Safely falls back if remembered folders no longer exist
 * Automatically handles accidentally selecting a `.pretty` folder as the library root
 * Extracts ZIP files to a temporary folder
 * Detects KiCad footprint, symbol, and 3D model files
+* Resolves target symbol library path from config or by scanning the target `.pretty` folder
 * Loads naming suggestions from JSON
-* Prompts for naming tokens
-* Remembers recently used naming-token values for future prompts
+* Loads naming vocabulary/options from JSON schema
+* Provides numbered token menus for common naming fields
+* Allows direct token entry and free-text custom values
 * Generates a standardized target basename
-* Creates a preview manifest CSV
+* Optionally creates a preview manifest CSV
 * Performs an early duplicate check by MPN
 * Copies and renames selected footprint files into the target `.pretty` folder
 * Copies and renames selected STEP/STP model files into the target `.pretty` folder
@@ -47,6 +50,7 @@ Current features:
 * Adds or updates copied footprint 3D model references
 * Adds hidden import/review metadata fields to copied footprints
 * Records importer version in copied footprints
+* Provides lightweight debug-output categories for development/testing
 
 ## Why This Exists
 
@@ -81,11 +85,14 @@ CUSTOM_LIBRARIES/
       └─ kia/
          ├─ __init__.py
          ├─ config.py
+         ├─ debug.py
          ├─ dialogs.py
          ├─ importer.py
          ├─ manifest.py
          ├─ naming.py
+         ├─ schema.py
          ├─ suggestions.py
+         ├─ symbols.py
          └─ zip_scan.py
 ```
 
@@ -151,7 +158,7 @@ Filename-based suggestion rules used to prefill naming fields during import.
 
 This tool is intentionally cautious.
 
-As of version **V0.7.0**, the tool can copy and rename selected footprint and STEP/STP model files into the configured target `.pretty` folder, but only after explicit confirmation.
+As of **V0.7.0**, the tool can copy and rename selected footprint and STEP/STP model files into the configured target `.pretty` folder, but only after explicit confirmation.
 
 Before writing files, the tool requires the user to type:
 
@@ -195,10 +202,11 @@ Future goals include:
 * Add backup/rollback behavior
 * Add batch import mode
 * Add manifest-driven import mode
-* Add schema-driven prompt menus
 * Add stronger validation from naming schema
 * Add safer ZIP extraction behavior
 * Add optional 3D model transform prompts
+* Add a Tkinter dialog-based workflow
+* Explore a future KiCad plugin wrapper
 * Add a more Sonarr/Radarr-style import review workflow
 
 ## Requirements

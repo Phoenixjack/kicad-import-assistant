@@ -6,33 +6,33 @@ Import vendor ZIP files containing KiCad footprints, symbols, and 3D models
 into a custom KiCad library structure.
 
 Current version:
-0.6.2
+0.7.0
 
 Current behavior:
-- Adds target symbol file resolution helper.
-- Uses configured symbol file when present.
-- Falls back to scanning the target .pretty folder for one .kicad_sym file.
-- Reports symbol resolution status in selected import settings.
-- Adds a symbols debug category.
-- Select vendor ZIP file
-- Select KiCad custom library root
-- Extract ZIP to a temporary folder
-- Detect .kicad_mod, .kicad_sym, .step, and .stp files
-- Load naming suggestions from JSON
-- Prompt for naming tokens
-- Generate standardized basename
-- Create preview manifest CSV
-- Require hard confirmation before writing files
-- Copy/rename selected footprint and STEP/STP model files
-- Update copied footprint internal name, Value property, 3D model path, and import metadata
-- Refuse to overwrite existing files
-- Leave symbols preview-only for now
+- Select a vendor ZIP file.
+- Select a KiCad custom library root.
+- Load naming schema and suggestion-rule JSON files.
+- Extract the vendor ZIP to a temporary folder.
+- Detect .kicad_mod, .kicad_sym, .step, and .stp files.
+- Resolve the target footprint/model folder.
+- Resolve the target .kicad_sym file from config or by scanning the target .pretty folder.
+- Suggest naming defaults from detected filenames.
+- Prompt for naming tokens using schema-driven menus where available.
+- Generate a standardized basename.
+- Optionally create a preview manifest CSV.
+- Require hard confirmation before writing files.
+- Copy/rename selected footprint and STEP/STP model files.
+- Update copied footprint internal name, Value property, 3D model path, and import metadata.
+- Refuse to overwrite existing files.
+- Leave symbols preview-only for now.
 
 Future goals:
-- Merge symbols into target .kicad_sym file
-- Update symbol Footprint property
-- Add schema-driven prompt menus
-- Add batch/manifest mode
+- Merge symbols into target .kicad_sym files.
+- Update symbol Footprint properties.
+- Add stronger validation from the naming schema.
+- Add backup/rollback behavior.
+- Add batch/manifest mode.
+- Explore dialog-based and/or KiCad plugin workflows.
 """
 
 APP_VERSION = "0.7.0"
@@ -181,9 +181,21 @@ def main() -> None:
             print(f"  {file_type}: {file_path}")
         else:
             print(f"  {file_type}: <none>")
-        
+
+    import_result = {
+        "confirmed": False,
+        "files_copied": False,
+        "copied_files": [],
+        "footprint_name_updated": False,
+        "footprint_value_updated": False,
+        "model_reference_updated": False,
+        "model_reference_added": False,
+        "metadata_added": False,
+        "symbols_merged": False,
+    }
+
     if confirm_import():
-        copy_selected_import_files(
+        import_result = copy_selected_import_files(
             selected_files=selected_files,
             library_root=library_root,
             library_settings=library_settings,
@@ -198,13 +210,35 @@ def main() -> None:
     save_config(config)
     debug_print("verbose", "")
     debug_print("verbose", f"Config saved: {CONFIG_PATH}")
-    # TODO: convert each print statement based on flags from earlier instead of all this "maybe I did it, maybe I didn't"
+    # TODO: Replace tentative final-status wording with import result flags.
+    # The final report should say what actually happened:
+    # - files copied or not copied
+    # - footprint internals updated or not attempted
+    # - metadata added or not attempted
+    # - symbols merged or not attempted
     print()
     print(f"Version {APP_VERSION} complete.")
-    #    print("Footprint/model files may have been copied if IMPORT was confirmed.")
-    debug_print("verbose", "The script attempted to update copied footprint internals.")
-    debug_print("verbose", "Imported footprints were marked with review metadata properties.")
-    debug_print("verbose", "Symbols were not merged.")
+    print()
+    print("Import status:")
+
+    if import_result.get("confirmed", False):
+        print(f"  Files copied: {'YES' if import_result.get('files_copied') else 'NO'}")
+        print(f"  Footprint internal name updated: {'YES' if import_result.get('footprint_name_updated') else 'NO'}")
+        print(f"  Footprint Value field updated: {'YES' if import_result.get('footprint_value_updated') else 'NO'}")
+
+        if import_result.get("model_reference_added"):
+            print("  3D model reference: ADDED")
+        elif import_result.get("model_reference_updated"):
+            print("  3D model reference: UPDATED")
+        else:
+            print("  3D model reference: NO")
+        
+        print(f"  Import metadata present: {'YES' if import_result.get('metadata_added') else 'NO'}")
+        print("  Symbol merged: NO - not implemented yet")
+    else:
+        print("  Files copied: NO - import was canceled")
+        print("  Footprint updates: NOT ATTEMPTED")
+        print("  Symbol merged: NO - not implemented yet")
 
 
 if __name__ == "__main__":

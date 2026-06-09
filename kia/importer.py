@@ -125,10 +125,72 @@ def build_kicad_model_path(
     return f"${{{path_variable}}}/{footprint_dir_name}/{basename}.step"
 
 
+def update_footprint_value_property(
+    footprint_path: Path,
+    basename: str,
+) -> bool:
+    """
+    Update the copied footprint's visible Value field.
+
+    Supports both newer KiCad property syntax:
+      (property "Value" "Old_Value"
+
+    and older/vendor footprint text syntax:
+      (fp_text value "Old_Value"
+    """
+    text = footprint_path.read_text(encoding="utf-8")
+
+    # Newer KiCad property syntax.
+    updated_text, replacement_count = re.subn(
+        pattern=r'(\(property\s+"Value"\s+)"[^"]+"',
+        repl=rf'\1"{basename}"',
+        string=text,
+        count=1,
+    )
+
+    if replacement_count == 1:
+        footprint_path.write_text(updated_text, encoding="utf-8")
+
+        debug_print("importer", "")
+        debug_print("importer", "Updated footprint Value property:")
+        debug_print("importer", f"  {footprint_path.name}")
+        debug_print("importer", f"  Value: {basename}")
+
+        return True
+
+    # Older/vendor footprint text syntax.
+    # Supports both:
+    #   (fp_text value "Old_Value"
+    #   (fp_text value Old_Value
+    updated_text, replacement_count = re.subn(
+        pattern=r'(\(fp_text\s+value\s+)("[^"]+"|[^\s\)]+)',
+        repl=rf'\1"{basename}"',
+        string=text,
+        count=1,
+    )
+
+    if replacement_count == 1:
+        footprint_path.write_text(updated_text, encoding="utf-8")
+
+        debug_print("importer", "")
+        debug_print("importer", "Updated footprint fp_text value:")
+        debug_print("importer", f"  {footprint_path.name}")
+        debug_print("importer", f"  Value: {basename}")
+
+        return True
+
+    print()
+    print("WARNING:")
+    print("Could not confidently update footprint Value field.")
+    print(f"  {footprint_path}")
+    print('Expected either (property "Value" "Old_Value" or (fp_text value "Old_Value"')
+    return False
+
+
 def update_footprint_internal_name(
     footprint_path: Path,
     basename: str,
-) -> None:
+) -> bool:
     """
     Update the copied footprint's internal name.
 
@@ -168,7 +230,7 @@ def update_footprint_internal_name(
         print('  (footprint "Old_Name"')
         print("or:")
         print("  (footprint Old_Name")
-        return
+        return False
 
     footprint_path.write_text(updated_text, encoding="utf-8")
 
@@ -176,6 +238,8 @@ def update_footprint_internal_name(
     debug_print("importer", "Updated footprint internal name:")
     debug_print("importer", f"  {footprint_path.name}")
     debug_print("importer", f"  Name: {basename}")
+    
+    return True
 
 
 def build_default_model_block(model_path_in_kicad: str) -> str:
@@ -202,7 +266,7 @@ def build_default_model_block(model_path_in_kicad: str) -> str:
 def update_footprint_model_path(
     footprint_path: Path,
     model_path_in_kicad: str,
-) -> None:
+) -> str:
     """
     Update the copied footprint's 3D model path.
 
@@ -226,7 +290,7 @@ def update_footprint_model_path(
         debug_print("importer", "Updated footprint 3D model path:")
         debug_print("importer", f"  {footprint_path.name}")
         debug_print("importer", f"  Model: {model_path_in_kicad}")
-        return
+        return "updated"
 
     model_block = build_default_model_block(model_path_in_kicad)
 
@@ -237,7 +301,7 @@ def update_footprint_model_path(
         print("WARNING:")
         print("Could not add 3D model block because footprint does not end with ')'.")
         print(f"  {footprint_path}")
-        return
+        return "failed"
 
     # Insert model block before final closing parenthesis of the footprint.
     updated_text = stripped_text[:-1] + model_block + ")\n"
@@ -248,6 +312,8 @@ def update_footprint_model_path(
     debug_print("importer", "Added footprint 3D model block:")
     debug_print("importer", f"  {footprint_path.name}")
     debug_print("importer", f"  Model: {model_path_in_kicad}")
+    
+    return "added"
 
 
 def copy_selected_import_files(
@@ -257,17 +323,31 @@ def copy_selected_import_files(
     config: dict,
     basename: str,
     app_version: str,
-) -> list[dict]:
+) -> dict:
     """
     Copy selected footprint/model files to the target library folder.
 
-    V0.6 behavior:
+    V0.7 behavior:
     - Copy footprint as <basename>.kicad_mod
     - Copy model as <basename>.step
     - Update copied footprint internal name
     - Update copied footprint 3D model path if a model file was selected
     - Do not merge symbols
+    - Return detailed status
     """
+    
+    result = {
+        "confirmed": True,
+        "files_copied": False,
+        "copied_files": [],
+        "footprint_name_updated": False,
+        "footprint_value_updated": False,
+        "model_reference_updated": False,
+        "model_reference_added": False,
+        "metadata_added": False,
+        "symbols_merged": False,
+    }
+    
     footprint_dir_name = library_settings.get("footprint_dir", "")
     target_folder = library_root / footprint_dir_name
 
@@ -308,11 +388,16 @@ def copy_selected_import_files(
         })
 
     if target_footprint:
-        update_footprint_internal_name(
+        result["footprint_name_updated"] = update_footprint_internal_name(
             footprint_path=target_footprint,
             basename=basename,
         )
 
+        result["footprint_value_updated"] = update_footprint_value_property(
+            footprint_path=target_footprint,
+            basename=basename,
+        )
+        
         if target_model:
             model_path_in_kicad = build_kicad_model_path(
                 config=config,
@@ -320,12 +405,15 @@ def copy_selected_import_files(
                 basename=basename,
             )
 
-            update_footprint_model_path(
+            model_result = update_footprint_model_path(
                 footprint_path=target_footprint,
                 model_path_in_kicad=model_path_in_kicad,
             )
 
-            add_import_metadata_properties(
+            result["model_reference_updated"] = model_result == "updated"
+            result["model_reference_added"] = model_result == "added"
+
+            result["metadata_added"] = add_import_metadata_properties(
                 footprint_path=target_footprint,
                 importer_version=f"V{app_version}",
             )
@@ -340,7 +428,10 @@ def copy_selected_import_files(
             debug_print("importer", f"    Source: {row['source']}")
             debug_print("importer", f"    Target: {row['target']}")
 
-    return copied_files
+    result["copied_files"] = copied_files
+    result["files_copied"] = len(copied_files) > 0
+
+    return result
 
 
 def build_hidden_footprint_property_block(
@@ -374,7 +465,7 @@ def build_hidden_footprint_property_block(
 def add_import_metadata_properties(
     footprint_path: Path,
     importer_version: str,
-) -> None:
+) -> bool:
     """
     Add hidden import/review metadata properties to the copied footprint.
 
@@ -406,7 +497,7 @@ def add_import_metadata_properties(
         print()
         print("Import metadata properties already present:")
         print(f"  {footprint_path.name}")
-        return
+        return True
 
     stripped_text = text.rstrip()
 
@@ -415,7 +506,7 @@ def add_import_metadata_properties(
         print("WARNING:")
         print("Could not add import metadata properties because footprint does not end with ')'.")
         print(f"  {footprint_path}")
-        return
+        return False
 
     metadata_block = "".join(blocks_to_add)
 
@@ -429,4 +520,5 @@ def add_import_metadata_properties(
     debug_print("importer", f"  {footprint_path.name}")
     for property_name, property_value in properties_to_add.items():
         debug_print("importer", f"  {property_name}: {property_value}")
-
+    
+    return True
