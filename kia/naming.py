@@ -100,14 +100,19 @@ def remember_recent_value(config: dict, field_name: str, value: str, max_count: 
     del values[max_count:]
 
 
-def build_basename_from_prompts(config: dict, library_settings: dict, found_files: dict, override_defaults: dict | None = None) -> str:
+def build_basename_from_prompts(config: dict, library_settings: dict, found_files: dict, override_defaults: dict | None = None, suggested_defaults: dict | None = None) -> str:
     """
     Ask the user for naming-convention tokens and build the target basename.
 
     Format:
     LIB_FAMILY_ROLE_MOUNT_ORIENT_SIZE[_PITCH][_BASE][_FEATURE]_MPN
     """
-    suggested = suggest_defaults_from_files(found_files)
+
+    if suggested_defaults is None:
+        suggested = suggest_defaults_from_files(found_files)
+    else:
+        suggested = dict(suggested_defaults)
+
     if override_defaults:
         suggested.update(override_defaults)
 

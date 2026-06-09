@@ -127,6 +127,7 @@ def main() -> None:
         library_settings,
         found_files,
         override_defaults={"mpn": early_mpn},
+        suggested_defaults=suggested_defaults,
     )
     debug_print("verbose", "")
     debug_print("verbose", "Generated target basename:")
