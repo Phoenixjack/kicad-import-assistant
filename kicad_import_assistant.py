@@ -85,7 +85,7 @@ def main() -> None:
     print(f"Target library.....{target_library}")
     print(f"Path variable......{config.get('path_variable')}")
     print(f"Footprint dir......{library_settings.get('footprint_dir')}")
-    print(f"Configured symbol..{library_settings.get('symbol_file')}")
+    print(f"Resolved symbol....{target_symbol_file}")
     print(f"Nickname...........{library_settings.get('nickname')}")
     print(f"Prefix.............{library_settings.get('prefix')}")
     print()
@@ -98,7 +98,9 @@ def main() -> None:
     else:
         print("Symbol library file ..... <not resolved>")
 
-print(f"Symbol resolution ....... {symbol_resolution_status}")    debug_print("config", "")
+    print(f"Symbol resolution ....... {symbol_resolution_status}")
+    
+    debug_print("config", "")
     debug_print("config", f"Raw config .............. {config}")
     debug_print("config", "")
     debug_print("config", f"Library settings ........ {library_settings}")
@@ -167,6 +169,14 @@ print(f"Symbol resolution ....... {symbol_resolution_status}")    debug_print("c
     debug_print("verbose", f"V{APP_VERSION} can now copy selected footprint/model files and update the copied footprint.")
     debug_print("verbose", "Symbols are still preview-only and will not be merged yet.")
 
+    print()
+    print("Selected files for import:")
+    for file_type, file_path in selected_files.items():
+        if file_path:
+            print(f"  {file_type}: {file_path}")
+        else:
+            print(f"  {file_type}: <none>")
+        
     if confirm_import():
         copy_selected_import_files(
             selected_files=selected_files,

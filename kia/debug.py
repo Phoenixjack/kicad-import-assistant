@@ -10,7 +10,7 @@ DEBUG_CATEGORIES = {
     "symbols": True,       # processing of symbols and symbol libraries
     "basename": False,     # token cleanup and final basename generation
     "manifest": False,     # manifest rows/path
-    "importer": False,     # copy paths, overwrite checks, footprint edits
+    "importer": True,      # copy paths, overwrite checks, footprint edits
     "info": False,         # success announcements
     "verbose": False,      # extra information
 }
