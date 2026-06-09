@@ -7,6 +7,7 @@ DEBUG_CATEGORIES = {
     "files": False,        # detected files, selected files
     "suggestions": False,  # JSON rule matches/defaults
     "tokens": False,       # prompt/default token values
+    "symbols": True,       # processing of symbols and symbol libraries
     "basename": False,     # token cleanup and final basename generation
     "manifest": False,     # manifest rows/path
     "importer": False,     # copy paths, overwrite checks, footprint edits

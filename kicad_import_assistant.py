@@ -6,9 +6,14 @@ Import vendor ZIP files containing KiCad footprints, symbols, and 3D models
 into a custom KiCad library structure.
 
 Current version:
-0.6.1
+0.6.2
 
 Current behavior:
+- Adds target symbol file resolution helper.
+- Uses configured symbol file when present.
+- Falls back to scanning the target .pretty folder for one .kicad_sym file.
+- Reports symbol resolution status in selected import settings.
+- Adds a symbols debug category.
 - Select vendor ZIP file
 - Select KiCad custom library root
 - Extract ZIP to a temporary folder
@@ -30,7 +35,7 @@ Future goals:
 - Add batch/manifest mode
 """
 
-APP_VERSION = "0.6.1"
+APP_VERSION = "0.6.2"
 
 import tkinter as tk
 from kia.debug import debug_print
@@ -40,6 +45,7 @@ from kia.dialogs import select_zip_file, select_library_root
 from kia.zip_scan import extract_zip_to_temp, find_import_files, print_import_file_summary
 from kia.naming import build_basename_from_prompts, suggest_defaults_from_files, prompt_with_default
 from kia.manifest import create_preview_manifest, select_import_files
+from kia.symbols import resolve_target_symbol_file
 from kia.importer import (
     confirm_import,
     copy_selected_import_files,
@@ -65,8 +71,10 @@ def main() -> None:
     target_library = config.get("last_target_library", "CONNECTORS")
     library_settings = config.get("libraries", {}).get(target_library, {})
     target_footprint_dir = library_root / library_settings.get("footprint_dir", "")
-    target_symbol_file = target_footprint_dir / library_settings.get("symbol_file", "")
-
+    target_symbol_file, symbol_resolution_status = resolve_target_symbol_file(
+        target_footprint_dir=target_footprint_dir,
+        library_settings=library_settings,
+    )
     debug_print("verbose", "")
     debug_print("verbose", f"Assistant version: {APP_VERSION}")
     print()
@@ -77,14 +85,20 @@ def main() -> None:
     print(f"Target library.....{target_library}")
     print(f"Path variable......{config.get('path_variable')}")
     print(f"Footprint dir......{library_settings.get('footprint_dir')}")
-    print(f"Symbol file........{library_settings.get('symbol_file')}")
+    print(f"Configured symbol..{library_settings.get('symbol_file')}")
     print(f"Nickname...........{library_settings.get('nickname')}")
     print(f"Prefix.............{library_settings.get('prefix')}")
     print()
+    print()
     print("Resolved target paths:")
     print(f"Footprint/model folder .. {target_footprint_dir}")
-    print(f"Symbol library file ..... {target_symbol_file}")
-    debug_print("config", "")
+
+    if target_symbol_file is not None:
+        print(f"Symbol library file ..... {target_symbol_file}")
+    else:
+        print("Symbol library file ..... <not resolved>")
+
+print(f"Symbol resolution ....... {symbol_resolution_status}")    debug_print("config", "")
     debug_print("config", f"Raw config .............. {config}")
     debug_print("config", "")
     debug_print("config", f"Library settings ........ {library_settings}")
