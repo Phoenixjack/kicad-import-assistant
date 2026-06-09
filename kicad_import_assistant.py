@@ -6,7 +6,7 @@ Import vendor ZIP files containing KiCad footprints, symbols, and 3D models
 into a custom KiCad library structure.
 
 Current version:
-0.7.0
+0.8.0
 
 Current behavior:
 - Select a vendor ZIP file.
@@ -19,23 +19,28 @@ Current behavior:
 - Suggest naming defaults from detected filenames.
 - Prompt for naming tokens using schema-driven menus where available.
 - Generate a standardized basename.
+- Create a temporary edited symbol preview file when a source symbol is available.
+- Update the preview symbol name.
+- Update the preview symbol Footprint property.
 - Optionally create a preview manifest CSV.
-- Require hard confirmation before writing files.
+- Require hard confirmation before writing footprint/model files.
 - Copy/rename selected footprint and STEP/STP model files.
-- Update copied footprint internal name, Value property, 3D model path, and import metadata.
-- Refuse to overwrite existing files.
-- Leave symbols preview-only for now.
+- Update copied footprint internal name, Value field, 3D model path, and import metadata.
+- Refuse to overwrite existing footprint/model files.
+- Report final operation status using import result flags.
+- Leave target .kicad_sym libraries unchanged for now.
 
 Future goals:
-- Merge symbols into target .kicad_sym files.
-- Update symbol Footprint properties.
+- Safely merge previewed symbols into target .kicad_sym files.
+- Create backups before modifying symbol libraries.
+- Refuse symbol merge if the target symbol already exists.
 - Add stronger validation from the naming schema.
 - Add backup/rollback behavior.
 - Add batch/manifest mode.
 - Explore dialog-based and/or KiCad plugin workflows.
 """
 
-APP_VERSION = "0.7.0"
+APP_VERSION = "0.8.0"
 
 import tkinter as tk
 from kia.debug import debug_print
@@ -46,6 +51,7 @@ from kia.zip_scan import extract_zip_to_temp, find_import_files, print_import_fi
 from kia.naming import build_basename_from_prompts, suggest_defaults_from_files, prompt_with_default
 from kia.manifest import create_preview_manifest, select_import_files
 from kia.symbols import resolve_target_symbol_file
+from kia.symbol_editor import create_symbol_preview_file
 from kia.schema import load_naming_schema
 from kia.importer import (
     confirm_import,
@@ -153,8 +159,48 @@ def main() -> None:
     debug_print("verbose", "Generated target basename:")
     debug_print("verbose", f"  {basename}")
 
+    import_result = {
+        "confirmed": False,
+        "files_copied": False,
+        "copied_files": [],
+        "footprint_name_updated": False,
+        "footprint_value_updated": False,
+        "model_reference_updated": False,
+        "model_reference_added": False,
+        "metadata_added": False,
+        "symbols_merged": False,
+        "symbol_preview_created": False,
+        "symbol_name_updated": False,
+        "symbol_footprint_property_updated": False,
+    }
+    
     selected_files = select_import_files(found_files)
+    
+    print()
+    print("DEBUG symbol preview call:")
+    print(f"  selected_files keys: {list(selected_files.keys())}")
+    print(f"  selected symbol: {selected_files.get('symbol')}")
+    print(f"  extract_root: {extract_root}")
 
+    symbol_preview_result = create_symbol_preview_file(
+        selected_files=selected_files,
+        library_settings=library_settings,
+        basename=basename,
+        extract_root=extract_root,
+    )
+    
+    print()
+    print("Symbol preview:")
+    if symbol_preview_result.get("symbol_preview_created"):
+        print(f"  Preview file: {symbol_preview_result.get('preview_symbol')}")
+        print(f"  Old symbol name: {symbol_preview_result.get('old_symbol_name')}")
+        print(f"  New symbol name: {symbol_preview_result.get('new_symbol_name')}")
+        print(f"  Footprint property: {symbol_preview_result.get('footprint_property')}")
+        print(f"  Symbol name updated: {'YES' if symbol_preview_result.get('symbol_name_updated') else 'NO'}")
+        print(f"  Footprint property updated: {'YES' if symbol_preview_result.get('footprint_property_updated') else 'NO'}")
+    else:
+        print("  No symbol preview created.")
+        
     confirm_manifest = input("Create preview manifest? [y/N]: ").strip().lower()
 
     if confirm_manifest in ["", "n", "no"]:
@@ -182,20 +228,12 @@ def main() -> None:
         else:
             print(f"  {file_type}: <none>")
 
-    import_result = {
-        "confirmed": False,
-        "files_copied": False,
-        "copied_files": [],
-        "footprint_name_updated": False,
-        "footprint_value_updated": False,
-        "model_reference_updated": False,
-        "model_reference_added": False,
-        "metadata_added": False,
-        "symbols_merged": False,
-    }
+    import_result["symbol_preview_created"] = symbol_preview_result.get("symbol_preview_created", False)
+    import_result["symbol_name_updated"] = symbol_preview_result.get("symbol_name_updated", False)
+    import_result["symbol_footprint_property_updated"] = symbol_preview_result.get("footprint_property_updated", False)
 
     if confirm_import():
-        import_result = copy_selected_import_files(
+        copy_result = copy_selected_import_files(
             selected_files=selected_files,
             library_root=library_root,
             library_settings=library_settings,
@@ -203,6 +241,9 @@ def main() -> None:
             basename=basename,
             app_version=APP_VERSION,
         )
+
+        import_result.update(copy_result)
+
     else:
         print()
         print("Import canceled. No files were copied.")
@@ -210,12 +251,6 @@ def main() -> None:
     save_config(config)
     debug_print("verbose", "")
     debug_print("verbose", f"Config saved: {CONFIG_PATH}")
-    # TODO: Replace tentative final-status wording with import result flags.
-    # The final report should say what actually happened:
-    # - files copied or not copied
-    # - footprint internals updated or not attempted
-    # - metadata added or not attempted
-    # - symbols merged or not attempted
     print()
     print(f"Version {APP_VERSION} complete.")
     print()
@@ -234,11 +269,14 @@ def main() -> None:
             print("  3D model reference: NO")
         
         print(f"  Import metadata present: {'YES' if import_result.get('metadata_added') else 'NO'}")
-        print("  Symbol merged: NO - not implemented yet")
+        print(f"  Symbol preview created: {'YES' if import_result.get('symbol_preview_created') else 'NO'}")
+        print(f"  Symbol name preview updated: {'YES' if import_result.get('symbol_name_updated') else 'NO'}")
+        print(f"  Symbol Footprint property preview updated: {'YES' if import_result.get('symbol_footprint_property_updated') else 'NO'}")
+        print("  Symbol merged: NO - preview only")
     else:
         print("  Files copied: NO - import was canceled")
         print("  Footprint updates: NOT ATTEMPTED")
-        print("  Symbol merged: NO - not implemented yet")
+        print("  Symbol merged: NO - preview only")
 
 
 if __name__ == "__main__":

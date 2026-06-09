@@ -12,16 +12,17 @@ The project is built around a cautious import workflow:
 6. Suggest naming defaults from JSON-based rules.
 7. Prompt for naming-convention fields using schema-driven token menus.
 8. Generate a standardized target basename.
-9. Optionally create a preview manifest.
-10. Require explicit confirmation before copying files.
-11. Copy and rename selected footprint/model files.
-12. Update copied footprint metadata where possible.
+9. Create a temporary edited symbol preview file.
+10. Optionally create a preview manifest.
+11. Require explicit confirmation before copying footprint/model files.
+12. Copy and rename selected footprint/model files.
+13. Update copied footprint metadata where possible.
 
 ## Project Status
 
 Early development / work in progress.
 
-Current version: **V0.7.0**
+Current version: **V0.8.0**
 
 Current features:
 
@@ -39,17 +40,21 @@ Current features:
 * Provides numbered token menus for common naming fields
 * Allows direct token entry and free-text custom values
 * Generates a standardized target basename
+* Creates a temporary edited symbol preview file
+* Updates the preview symbol name
+* Updates the preview symbol `Footprint` property
 * Optionally creates a preview manifest CSV
 * Performs an early duplicate check by MPN
 * Copies and renames selected footprint files into the target `.pretty` folder
 * Copies and renames selected STEP/STP model files into the target `.pretty` folder
-* Requires hard confirmation before modifying files
+* Requires hard confirmation before modifying footprint/model files
 * Refuses to overwrite existing target files
 * Updates copied footprint internal names when possible
-* Updates copied footprint `Value` properties when possible
+* Updates copied footprint `Value` fields when possible
 * Adds or updates copied footprint 3D model references
 * Adds hidden import/review metadata fields to copied footprints
 * Records importer version in copied footprints
+* Reports final import status using operation result flags
 * Provides lightweight debug-output categories for development/testing
 
 ## Why This Exists
@@ -92,6 +97,7 @@ CUSTOM_LIBRARIES/
          ├─ naming.py
          ├─ schema.py
          ├─ suggestions.py
+         ├─ symbol_editor.py
          ├─ symbols.py
          └─ zip_scan.py
 ```
@@ -158,9 +164,9 @@ Filename-based suggestion rules used to prefill naming fields during import.
 
 This tool is intentionally cautious.
 
-As of **V0.7.0**, the tool can copy and rename selected footprint and STEP/STP model files into the configured target `.pretty` folder, but only after explicit confirmation.
+As of **V0.8.0**, the tool can copy and rename selected footprint and STEP/STP model files into the configured target `.pretty` folder, but only after explicit confirmation.
 
-Before writing files, the tool requires the user to type:
+Before writing footprint/model files, the tool requires the user to type:
 
 ```text
 IMPORT
@@ -171,14 +177,22 @@ The tool currently refuses to overwrite existing target files.
 After copying a footprint, the tool attempts to update:
 
 * internal footprint name
-* footprint `Value` property
+* footprint `Value` field
 * 3D model reference
 * hidden import/review metadata fields
+
+The tool can also create a temporary edited symbol preview file. The preview symbol file is written to the temporary extraction folder and does **not** modify the target `.kicad_sym` library.
+
+The symbol preview attempts to update:
+
+* symbol name
+* symbol `Footprint` property
 
 The tool currently does **not**:
 
 * merge symbols into `.kicad_sym` libraries
-* update symbol `Footprint` properties
+* modify target `.kicad_sym` files
+* update symbol aliases/alternate units beyond the first-pass preview edits
 * perform full KiCad S-expression validation
 * guarantee 3D model orientation
 * guarantee pad/schematic correctness
@@ -196,10 +210,12 @@ Needs3DModelValidation
 
 Future goals include:
 
-* Merge symbols into a target `.kicad_sym` file
-* Update symbol `Footprint` properties
+* Safely merge previewed symbols into a target `.kicad_sym` file
+* Create timestamped backups before modifying symbol libraries
+* Refuse symbol merge when a matching symbol already exists
+* Update symbol `Footprint` properties during real merge
 * Improve duplicate detection
-* Add backup/rollback behavior
+* Add backup/rollback behavior for copied footprint/model files
 * Add batch import mode
 * Add manifest-driven import mode
 * Add stronger validation from naming schema
