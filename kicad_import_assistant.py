@@ -6,41 +6,45 @@ Import vendor ZIP files containing KiCad footprints, symbols, and 3D models
 into a custom KiCad library structure.
 
 Current version:
-0.8.0
+0.8.1
 
 Current behavior:
-- Select a vendor ZIP file.
-- Select a KiCad custom library root.
-- Load naming schema and suggestion-rule JSON files.
-- Extract the vendor ZIP to a temporary folder.
-- Detect .kicad_mod, .kicad_sym, .step, and .stp files.
-- Resolve the target footprint/model folder.
-- Resolve the target .kicad_sym file from config or by scanning the target .pretty folder.
-- Suggest naming defaults from detected filenames.
-- Prompt for naming tokens using schema-driven menus where available.
-- Generate a standardized basename.
-- Create a temporary edited symbol preview file when a source symbol is available.
-- Update the preview symbol name.
-- Update the preview symbol Footprint property.
-- Optionally create a preview manifest CSV.
-- Require hard confirmation before writing footprint/model files.
-- Copy/rename selected footprint and STEP/STP model files.
-- Update copied footprint internal name, Value field, 3D model path, and import metadata.
-- Refuse to overwrite existing footprint/model files.
-- Report final operation status using import result flags.
-- Leave target .kicad_sym libraries unchanged for now.
+
+* Select a vendor ZIP file.
+* Select a KiCad custom library root.
+* Load naming schema and suggestion-rule JSON files.
+* Extract the vendor ZIP to a temporary folder.
+* Detect .kicad_mod, .kicad_sym, .step, and .stp files.
+* Resolve the target footprint/model folder.
+* Resolve the target .kicad_sym file from config or by scanning the target .pretty folder.
+* Suggest naming defaults from detected filenames.
+* Prompt for naming tokens using schema-driven menus where available.
+* Generate a standardized basename.
+* Create a temporary edited symbol preview file when a source symbol is available.
+* Update the preview symbol name.
+* Update the preview symbol Footprint property.
+* Check whether the resolved target symbol library already contains the generated symbol.
+* Create a timestamped backup of the target symbol library after IMPORT when symbol prechecks pass.
+* Optionally create a preview manifest CSV.
+* Require hard confirmation before writing files.
+* Copy/rename selected footprint and STEP/STP model files.
+* Update copied footprint internal name, Value field, 3D model path, and import metadata.
+* Refuse to overwrite existing footprint/model files.
+* Report final operation status using import result flags.
+* Leave target .kicad_sym library contents unchanged for now, except for timestamped backup files.
 
 Future goals:
-- Safely merge previewed symbols into target .kicad_sym files.
-- Create backups before modifying symbol libraries.
-- Refuse symbol merge if the target symbol already exists.
-- Add stronger validation from the naming schema.
-- Add backup/rollback behavior.
-- Add batch/manifest mode.
-- Explore dialog-based and/or KiCad plugin workflows.
-"""
 
-APP_VERSION = "0.8.0"
+* Safely merge previewed symbols into target .kicad_sym files.
+* Refuse symbol merge if the target symbol already exists.
+* Add stronger validation from the naming schema.
+* Add backup/rollback behavior for copied footprint/model files.
+* Add batch/manifest mode.
+* Explore dialog-based and/or KiCad plugin workflows.
+  """
+
+
+APP_VERSION = "0.8.1"
 
 import tkinter as tk
 from kia.debug import debug_print
@@ -51,7 +55,11 @@ from kia.zip_scan import extract_zip_to_temp, find_import_files, print_import_fi
 from kia.naming import build_basename_from_prompts, suggest_defaults_from_files, prompt_with_default
 from kia.manifest import create_preview_manifest, select_import_files
 from kia.symbols import resolve_target_symbol_file
-from kia.symbol_editor import create_symbol_preview_file
+from kia.symbol_editor import (
+    create_symbol_preview_file,
+    check_symbol_merge_preconditions,
+    create_symbol_library_backup,
+)
 from kia.schema import load_naming_schema
 from kia.importer import (
     confirm_import,
@@ -172,6 +180,8 @@ def main() -> None:
         "symbol_preview_created": False,
         "symbol_name_updated": False,
         "symbol_footprint_property_updated": False,
+        "symbol_backup_created": False,
+        "symbol_backup_path": None,
     }
     
     selected_files = select_import_files(found_files)
@@ -188,6 +198,25 @@ def main() -> None:
         basename=basename,
         extract_root=extract_root,
     )
+    print()
+    print("DEBUG precheck target symbol file:")
+    print(f"  target_symbol_file: {target_symbol_file}")
+    print(f"  type: {type(target_symbol_file)}")
+
+    if target_symbol_file is not None:
+        print(f"  exists: {target_symbol_file.exists()}")
+    
+    symbol_merge_precheck = check_symbol_merge_preconditions(
+        target_symbol_file=target_symbol_file,
+        new_symbol_name=basename,
+    )
+
+    print()
+    print("Symbol merge precheck:")
+    print(f"  Target symbol file exists: {'YES' if symbol_merge_precheck.get('target_symbol_file_exists') else 'NO'}")
+    print(f"  Target symbol already exists: {'YES' if symbol_merge_precheck.get('target_symbol_already_exists') else 'NO'}")
+    print(f"  Precheck passed: {'YES' if symbol_merge_precheck.get('symbol_merge_precheck_passed') else 'NO'}")
+    print(f"  Reason: {symbol_merge_precheck.get('reason')}")
     
     print()
     print("Symbol preview:")
@@ -244,6 +273,13 @@ def main() -> None:
 
         import_result.update(copy_result)
 
+        if symbol_merge_precheck.get("symbol_merge_precheck_passed", False):
+            symbol_backup_path = create_symbol_library_backup(target_symbol_file)
+
+            if symbol_backup_path is not None:
+                import_result["symbol_backup_created"] = True
+                import_result["symbol_backup_path"] = symbol_backup_path
+
     else:
         print()
         print("Import canceled. No files were copied.")
@@ -273,6 +309,10 @@ def main() -> None:
         print(f"  Symbol name preview updated: {'YES' if import_result.get('symbol_name_updated') else 'NO'}")
         print(f"  Symbol Footprint property preview updated: {'YES' if import_result.get('symbol_footprint_property_updated') else 'NO'}")
         print("  Symbol merged: NO - preview only")
+        print(f"  Symbol backup created: {'YES' if import_result.get('symbol_backup_created') else 'NO'}")
+
+        if import_result.get("symbol_backup_path"):
+            print(f"    Backup: {import_result.get('symbol_backup_path')}")
     else:
         print("  Files copied: NO - import was canceled")
         print("  Footprint updates: NOT ATTEMPTED")

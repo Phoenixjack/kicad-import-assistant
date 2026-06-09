@@ -1,6 +1,7 @@
 import re
 from pathlib import Path
-
+import shutil
+from datetime import datetime
 from kia.debug import debug_print
 
 
@@ -146,3 +147,112 @@ def create_symbol_preview_file(
     debug_print("symbols", f"  Footprint property updated: {footprint_updated}")
 
     return result
+
+
+def target_symbol_exists(
+    target_symbol_text: str,
+    symbol_name: str,
+) -> bool:
+    """
+    Return True if the target symbol library already contains symbol_name.
+
+    Looks for:
+      (symbol "symbol_name"
+    """
+    pattern = rf'\(symbol\s+"{re.escape(symbol_name)}"'
+    return re.search(pattern, target_symbol_text) is not None
+
+
+def build_symbol_backup_path(
+    target_symbol_file: Path,
+) -> Path:
+    """
+    Build a timestamped backup path for a target .kicad_sym file.
+
+    Example:
+      _testlibrary.kicad_sym
+      _testlibrary.20260609_231530.backup.kicad_sym
+    """
+    timestamp = datetime.now().strftime("%Y%m%d_%H%M%S")
+
+    backup_name = (
+        f"{target_symbol_file.stem}."
+        f"{timestamp}."
+        f"backup{target_symbol_file.suffix}"
+    )
+
+    return target_symbol_file.with_name(backup_name)
+
+
+def create_symbol_library_backup(
+    target_symbol_file: Path,
+) -> Path | None:
+    """
+    Create a timestamped backup of the target symbol library.
+
+    Returns the backup path if created.
+    Returns None if the target symbol file does not exist.
+    """
+    if not target_symbol_file.exists():
+        print()
+        print("WARNING:")
+        print("Cannot create symbol backup because target symbol file does not exist:")
+        print(f"  {target_symbol_file}")
+        return None
+
+    backup_path = build_symbol_backup_path(target_symbol_file)
+
+    shutil.copy2(target_symbol_file, backup_path)
+
+    debug_print("symbols", "")
+    debug_print("symbols", "Created symbol library backup:")
+    debug_print("symbols", f"  Source: {target_symbol_file}")
+    debug_print("symbols", f"  Backup: {backup_path}")
+
+    return backup_path
+
+
+def check_symbol_merge_preconditions(
+    target_symbol_file: Path | None,
+    new_symbol_name: str,
+) -> dict:
+    """
+    Check whether a symbol merge would be safe to attempt.
+
+    This does not modify the target symbol library.
+    """
+    result = {
+        "target_symbol_file_exists": False,
+        "target_symbol_already_exists": False,
+        "symbol_merge_precheck_passed": False,
+        "reason": "",
+    }
+
+    if target_symbol_file is None:
+        result["reason"] = "No target symbol file resolved."
+        return result
+
+    target_symbol_file = Path(target_symbol_file)
+
+    if not target_symbol_file.exists():
+        result["reason"] = "Target symbol file does not exist."
+        return result
+
+    result["target_symbol_file_exists"] = True
+
+    target_text = target_symbol_file.read_text(encoding="utf-8")
+
+    if target_symbol_exists(
+        target_symbol_text=target_text,
+        symbol_name=new_symbol_name,
+    ):
+        result["target_symbol_already_exists"] = True
+        result["reason"] = "Target symbol library already contains this symbol."
+        return result
+
+    result["symbol_merge_precheck_passed"] = True
+    result["reason"] = "Symbol merge precheck passed."
+
+    return result
+
+

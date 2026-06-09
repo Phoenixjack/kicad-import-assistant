@@ -13,16 +13,18 @@ The project is built around a cautious import workflow:
 7. Prompt for naming-convention fields using schema-driven token menus.
 8. Generate a standardized target basename.
 9. Create a temporary edited symbol preview file.
-10. Optionally create a preview manifest.
-11. Require explicit confirmation before copying footprint/model files.
-12. Copy and rename selected footprint/model files.
-13. Update copied footprint metadata where possible.
+10. Check whether the target symbol library can safely accept the previewed symbol.
+11. Optionally create a preview manifest.
+12. Require explicit confirmation before writing files.
+13. Copy and rename selected footprint/model files.
+14. Update copied footprint metadata where possible.
+15. Create a timestamped backup of the target symbol library when symbol merge prechecks pass.
 
 ## Project Status
 
 Early development / work in progress.
 
-Current version: **V0.8.0**
+Current version: **V0.8.1**
 
 Current features:
 
@@ -43,11 +45,13 @@ Current features:
 * Creates a temporary edited symbol preview file
 * Updates the preview symbol name
 * Updates the preview symbol `Footprint` property
+* Checks whether the resolved target symbol library already contains the generated symbol name
+* Creates a timestamped backup of the target symbol library after `IMPORT` when symbol merge prechecks pass
 * Optionally creates a preview manifest CSV
 * Performs an early duplicate check by MPN
 * Copies and renames selected footprint files into the target `.pretty` folder
 * Copies and renames selected STEP/STP model files into the target `.pretty` folder
-* Requires hard confirmation before modifying footprint/model files
+* Requires hard confirmation before modifying files
 * Refuses to overwrite existing target files
 * Updates copied footprint internal names when possible
 * Updates copied footprint `Value` fields when possible
@@ -164,15 +168,15 @@ Filename-based suggestion rules used to prefill naming fields during import.
 
 This tool is intentionally cautious.
 
-As of **V0.8.0**, the tool can copy and rename selected footprint and STEP/STP model files into the configured target `.pretty` folder, but only after explicit confirmation.
+As of **V0.8.1**, the tool can copy and rename selected footprint and STEP/STP model files into the configured target `.pretty` folder, but only after explicit confirmation.
 
-Before writing footprint/model files, the tool requires the user to type:
+Before writing files, the tool requires the user to type:
 
 ```text
 IMPORT
 ```
 
-The tool currently refuses to overwrite existing target files.
+The tool currently refuses to overwrite existing footprint/model target files.
 
 After copying a footprint, the tool attempts to update:
 
@@ -188,11 +192,19 @@ The symbol preview attempts to update:
 * symbol name
 * symbol `Footprint` property
 
+The tool also checks the resolved target symbol library before future merge work:
+
+* verifies that the target `.kicad_sym` file exists
+* checks whether the generated symbol name already exists in the target library
+* reports whether the symbol merge precheck passed
+* creates a timestamped backup of the target symbol library after `IMPORT` when prechecks pass
+
 The tool currently does **not**:
 
 * merge symbols into `.kicad_sym` libraries
-* modify target `.kicad_sym` files
-* update symbol aliases/alternate units beyond the first-pass preview edits
+* append symbols to target `.kicad_sym` files
+* modify target `.kicad_sym` contents other than creating backup copies
+* update symbol aliases/alternate units beyond first-pass preview edits
 * perform full KiCad S-expression validation
 * guarantee 3D model orientation
 * guarantee pad/schematic correctness
@@ -211,7 +223,6 @@ Needs3DModelValidation
 Future goals include:
 
 * Safely merge previewed symbols into a target `.kicad_sym` file
-* Create timestamped backups before modifying symbol libraries
 * Refuse symbol merge when a matching symbol already exists
 * Update symbol `Footprint` properties during real merge
 * Improve duplicate detection
