@@ -35,7 +35,7 @@ Future goals:
 - Add batch/manifest mode
 """
 
-APP_VERSION = "0.6.2"
+APP_VERSION = "0.7.0"
 
 import tkinter as tk
 from kia.debug import debug_print
@@ -46,6 +46,7 @@ from kia.zip_scan import extract_zip_to_temp, find_import_files, print_import_fi
 from kia.naming import build_basename_from_prompts, suggest_defaults_from_files, prompt_with_default
 from kia.manifest import create_preview_manifest, select_import_files
 from kia.symbols import resolve_target_symbol_file
+from kia.schema import load_naming_schema
 from kia.importer import (
     confirm_import,
     copy_selected_import_files,
@@ -61,6 +62,8 @@ def main() -> None:
     """
     
     config = load_config()
+    
+    naming_schema = load_naming_schema()
 
     root = tk.Tk()
     root.withdraw()
@@ -144,6 +147,7 @@ def main() -> None:
         found_files,
         override_defaults={"mpn": early_mpn},
         suggested_defaults=suggested_defaults,
+        naming_schema=naming_schema,
     )
     debug_print("verbose", "")
     debug_print("verbose", "Generated target basename:")
@@ -162,6 +166,7 @@ def main() -> None:
             library_root=library_root,
             library_settings=library_settings,
             basename=basename,
+            target_symbol_file=target_symbol_file,
         )
 
     debug_print("verbose", "")

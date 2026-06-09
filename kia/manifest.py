@@ -66,6 +66,7 @@ def create_preview_manifest(
     library_root: Path,
     library_settings: dict,
     basename: str,
+    target_symbol_file: Path | None = None,
 ) -> Path:
     """
     Create a preview manifest CSV.
@@ -78,8 +79,14 @@ def create_preview_manifest(
     nickname = library_settings.get("nickname", "")
 
     target_footprint_dir = library_root / footprint_dir_name
-    target_symbol_file = target_footprint_dir / symbol_file_name
-
+    
+    if target_symbol_file is not None:
+        symbol_target = target_symbol_file
+    else:
+        footprint_dir_name = library_settings.get("footprint_dir", "")
+        symbol_file_name = library_settings.get("symbol_file", "")
+        symbol_target = library_root / footprint_dir_name / symbol_file_name
+    
     selected_footprint = selected_files.get("footprint")
     selected_symbol = selected_files.get("symbol")
     selected_model = selected_files.get("model")
@@ -92,7 +99,7 @@ def create_preview_manifest(
             "source_file": str(selected_footprint.relative_to(extract_root)),
             "target_file": str(target_footprint_dir / f"{basename}.kicad_mod"),
             "action": "COPY_RENAME_PENDING",
-            "notes": "Future step: update internal footprint name and 3D model path",
+            "notes": "V0.7.0: copied footprint internal name, Value property, 3D model path, and metadata will be updated after IMPORT",
         })
 
     if selected_model:
@@ -101,7 +108,7 @@ def create_preview_manifest(
             "source_file": str(selected_model.relative_to(extract_root)),
             "target_file": str(target_footprint_dir / f"{basename}.step"),
             "action": "COPY_RENAME_PENDING",
-            "notes": "V0.5: copy/rename model; future step may update references",
+            "notes": "V0.7.0: model will be copied/renamed and referenced by the copied footprint",
         })
 
     if selected_symbol:
@@ -110,7 +117,7 @@ def create_preview_manifest(
             "source_file": str(selected_symbol.relative_to(extract_root)),
             "target_file": str(target_symbol_file),
             "action": "MERGE_PENDING",
-            "notes": f"Future step: update symbol name and Footprint property to {nickname}:{basename}",
+            "notes": f"Future step: merge symbol and update Footprint property to {library_settings.get('nickname')}:{basename}",
         })
 
     manifest_path = extract_root / "kicad_import_preview_manifest.csv"

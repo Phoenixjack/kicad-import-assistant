@@ -13,6 +13,7 @@ DEBUG_CATEGORIES = {
     "importer": True,      # copy paths, overwrite checks, footprint edits
     "info": False,         # success announcements
     "verbose": False,      # extra information
+    "schema": False,       # handles tokens as menus as derived from kicad_import_naming_schema.json 
 }
 
 
