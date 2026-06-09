@@ -2,32 +2,39 @@
 KiCad Import Assistant
 
 Purpose:
-Import vendor ZIP files containing KiCad footprints and symbols
+Import vendor ZIP files containing KiCad footprints, symbols, and 3D models
 into a custom KiCad library structure.
 
-Version 0.4 goals:
-- Split into separate subscripts to improve readability
+Current version:
+0.6.1
+
+Current behavior:
+- Select vendor ZIP file
+- Select KiCad custom library root
+- Extract ZIP to a temporary folder
+- Detect .kicad_mod, .kicad_sym, .step, and .stp files
+- Load naming suggestions from JSON
 - Prompt for naming tokens
-- Generate proposed basename
-- Generate target filenames
-- Write a preview manifest CSV
-- Do not copy, rename, or edit library files yet
+- Generate standardized basename
+- Create preview manifest CSV
+- Require hard confirmation before writing files
+- Copy/rename selected footprint and STEP/STP model files
+- Update copied footprint internal name, Value property, 3D model path, and import metadata
+- Refuse to overwrite existing files
+- Leave symbols preview-only for now
 
 Future goals:
-- Prompt user for naming tokens
-- Rename/copy footprint files
-- Update footprint internal name
-- Update footprint 3D model name and path
 - Merge symbols into target .kicad_sym file
 - Update symbol Footprint property
+- Add schema-driven prompt menus
 - Add batch/manifest mode
 """
 
 APP_VERSION = "0.6.1"
 
 import tkinter as tk
+from kia.debug import debug_print
 from pathlib import Path
-
 from kia.config import CONFIG_PATH, load_config, save_config
 from kia.dialogs import select_zip_file, select_library_root
 from kia.zip_scan import extract_zip_to_temp, find_import_files, print_import_file_summary
@@ -40,6 +47,7 @@ from kia.importer import (
     warn_about_existing_mpn_matches,
     confirm_continue_after_duplicate_warning,
 )
+
 
 def main() -> None:
     """
@@ -56,10 +64,14 @@ def main() -> None:
 
     target_library = config.get("last_target_library", "CONNECTORS")
     library_settings = config.get("libraries", {}).get(target_library, {})
+    target_footprint_dir = library_root / library_settings.get("footprint_dir", "")
+    target_symbol_file = target_footprint_dir / library_settings.get("symbol_file", "")
 
+    debug_print("info", "")
+    debug_print("info", f"Assistant version: {APP_VERSION}")
     print()
-    print(f"Assistant version: {APP_VERSION}")
     print("Selected import settings:")
+    print(f"Assistant version: {APP_VERSION}")
     print(f"ZIP:             {zip_path}")
     print(f"Library root:    {library_root}")
     print(f"Target library:  {target_library}")
@@ -68,21 +80,21 @@ def main() -> None:
     print(f"Symbol file:     {library_settings.get('symbol_file')}")
     print(f"Nickname:        {library_settings.get('nickname')}")
     print(f"Prefix:          {library_settings.get('prefix')}")
-
-    target_footprint_dir = library_root / library_settings.get("footprint_dir", "")
-    target_symbol_file = target_footprint_dir / library_settings.get("symbol_file", "")
-
     print()
     print("Resolved target paths:")
-    print(f"Footprint/model folder: {target_footprint_dir}")
-    print(f"Symbol library file:    {target_symbol_file}")
+    print(f"Footprint/model folder .. {target_footprint_dir}")
+    print(f"Symbol library file ..... {target_symbol_file}")
+    debug_print("config", f"Raw config .............. {config}")
+    debug_print("config", f"Library settings ........ {library_settings}")
 
     if not target_footprint_dir.exists():
         print()
         print("WARNING:")
         print("Target footprint/model folder does not exist yet:")
         print(f"  {target_footprint_dir}")
-        print("The script will not create or modify anything in this version.")
+        print("The script may fail if this folder is needed for import.")
+
+        debug_print("error", f"Missing target footprint/model folder: {target_footprint_dir}")
 
     extract_root = extract_zip_to_temp(zip_path)
     found_files = find_import_files(extract_root)
@@ -103,8 +115,8 @@ def main() -> None:
     warn_about_existing_mpn_matches(existing_matches, early_mpn)
 
     if not confirm_continue_after_duplicate_warning(existing_matches):
-        print()
-        print("Import canceled before naming step.")
+        debug_print("error", "")
+        debug_print("error", "Import canceled before naming step.")
         raise SystemExit
     
     basename = build_basename_from_prompts(
@@ -113,9 +125,9 @@ def main() -> None:
         found_files,
         override_defaults={"mpn": early_mpn},
     )
-    print()
-    print("Generated target basename:")
-    print(f"  {basename}")
+    debug_print("verbose", "")
+    debug_print("verbose", "Generated target basename:")
+    debug_print("verbose", f"  {basename}")
 
     selected_files = select_import_files(found_files)
 
@@ -130,12 +142,12 @@ def main() -> None:
             basename=basename,
         )
     else:
-        print("Preview manifest skipped.")
+        debug_print("verbose", "Preview manifest skipped.")
 
-    print()
-    print()
-    print(f"V{APP_VERSION} can now copy selected footprint/model files and update the copied footprint.")
-    print("Symbols are still preview-only and will not be merged yet.")
+    debug_print("verbose", "")
+    debug_print("verbose", "")
+    debug_print("verbose", f"V{APP_VERSION} can now copy selected footprint/model files and update the copied footprint.")
+    debug_print("verbose", "Symbols are still preview-only and will not be merged yet.")
 
     if confirm_import():
         copy_selected_import_files(
