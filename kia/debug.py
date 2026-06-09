@@ -1,21 +1,18 @@
 DEBUG_ENABLED = True
 
 DEBUG_CATEGORIES = {
-    "config": False,
-    "zip": False,
-    "dialogs": False,
-    "files": False,
-    "suggestions": False,
-    "tokens": False,
-    "rules": False,
-    "basename": False,
-    "manifest": False,
-    "importer": False,
-    "critical": True,
-    "warning": True,
-    "error": True,
-    "info": False,
-    "verbose": False,
+    "config": False,       # loading/saving config, resolved config paths
+    "zip": False,          # ZIP extraction/temp folder details
+    "dialogs": False,      # user prompts
+    "files": False,        # detected files, selected files
+    "suggestions": False,  # JSON rule matches/defaults
+    "tokens": False,       # prompt/default token values
+    "rules": False,        # validation rules
+    "basename": False,     # token cleanup and final basename generation
+    "manifest": False,     # manifest rows/path
+    "importer": False,     # copy paths, overwrite checks, footprint edits
+    "info": False,         # success announcements
+    "verbose": False,      # extra information
 }
 
 

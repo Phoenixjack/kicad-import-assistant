@@ -67,8 +67,8 @@ def main() -> None:
     target_footprint_dir = library_root / library_settings.get("footprint_dir", "")
     target_symbol_file = target_footprint_dir / library_settings.get("symbol_file", "")
 
-    debug_print("info", "")
-    debug_print("info", f"Assistant version: {APP_VERSION}")
+    debug_print("verbose", "")
+    debug_print("verbose", f"Assistant version: {APP_VERSION}")
     print()
     print("Selected import settings:")
     print(f"Assistant version..{APP_VERSION}")
@@ -84,8 +84,11 @@ def main() -> None:
     print("Resolved target paths:")
     print(f"Footprint/model folder .. {target_footprint_dir}")
     print(f"Symbol library file ..... {target_symbol_file}")
+    debug_print("config", "")
     debug_print("config", f"Raw config .............. {config}")
+    debug_print("config", "")
     debug_print("config", f"Library settings ........ {library_settings}")
+    debug_print("config", "")
 
     if not target_footprint_dir.exists():
         print()
@@ -94,7 +97,7 @@ def main() -> None:
         print(f"  {target_footprint_dir}")
         print("The script may fail if this folder is needed for import.")
 
-        debug_print("error", f"Missing target footprint/model folder: {target_footprint_dir}")
+        print(f"Missing target footprint/model folder: {target_footprint_dir}")
 
     extract_root = extract_zip_to_temp(zip_path)
     found_files = find_import_files(extract_root)
@@ -115,8 +118,8 @@ def main() -> None:
     warn_about_existing_mpn_matches(existing_matches, early_mpn)
 
     if not confirm_continue_after_duplicate_warning(existing_matches):
-        debug_print("error", "")
-        debug_print("error", "Import canceled before naming step.")
+        print()
+        print("Import canceled before naming step.")
         raise SystemExit
     
     basename = build_basename_from_prompts(

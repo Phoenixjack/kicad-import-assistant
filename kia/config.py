@@ -44,7 +44,7 @@ def load_config() -> dict:
     If the config does not exist or is invalid, return default settings.
     """
     if not CONFIG_PATH.exists():
-        debug_print("info", f"No config found. Using defaults: {CONFIG_PATH}")
+        debug_print("config", f"No config found. Using defaults: {CONFIG_PATH}")
         return copy.deepcopy(DEFAULT_CONFIG)
 
     try:
@@ -67,9 +67,9 @@ def load_config() -> dict:
         return config
 
     except json.JSONDecodeError as error:
-        debug_print("error", f"Config file contains invalid JSON: {CONFIG_PATH}")
-        debug_print("error", error)
-        debug_print("error", "Using defaults instead.")
+        print(f"Config file contains invalid JSON: {CONFIG_PATH}")
+        print(error)
+        dprint("Using defaults instead.")
         return copy.deepcopy(DEFAULT_CONFIG)
 
 

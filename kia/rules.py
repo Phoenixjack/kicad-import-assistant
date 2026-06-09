@@ -100,18 +100,18 @@ def suggest_defaults_from_rules(found_files: dict) -> dict:
         return defaults
 
     if len(matched_rules) > 1:
-        debug_print("info", "")
-        debug_print("info", "Multiple naming rules matched. Using the first one:")
+        debug_print("rules", "")
+        debug_print("rules", "Multiple naming rules matched. Using the first one:")
         for rule in matched_rules:
-            debug_print("info", f"  - {rule.get('name', '<unnamed rule>')}")
+            debug_print("rules", f"  - {rule.get('name', '<unnamed rule>')}")
 
     selected_rule = matched_rules[0]
     rule_defaults = selected_rule.get("defaults", {})
 
     defaults.update(rule_defaults)
 
-    debug_print("info", "")
-    debug_print("info", "Naming rule matched:")
-    debug_print("info", f"  {selected_rule.get('name', '<unnamed rule>')}")
+    debug_print("rules", "")
+    debug_print("rules", "Naming rule matched:")
+    debug_print("rules", f"  {selected_rule.get('name', '<unnamed rule>')}")
 
     return defaults
