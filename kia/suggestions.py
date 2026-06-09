@@ -1,6 +1,7 @@
 import json
 import re
 from pathlib import Path
+from kia.debug import debug_print
 
 
 SCRIPT_DIR = Path(__file__).resolve().parent.parent
@@ -113,6 +114,7 @@ def suggest_defaults_from_rules(found_files: dict) -> dict:
     """
     Suggest naming-token defaults using external JSON suggestion rules.
     """
+    print("I'M IN THE SUGGESTIONS!")
     suggestions = DEFAULT_SUGGESTIONS.copy()
     detected_text = collect_detected_filename_text(found_files)
     rules_data = load_suggestion_rules()

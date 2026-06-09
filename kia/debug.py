@@ -3,16 +3,18 @@ DEBUG_ENABLED = True
 DEBUG_CATEGORIES = {
     "config": False,
     "zip": False,
+    "dialogs": False,
     "files": False,
-    "suggestions": True,
-    "tokens": True,
-    "basename": True,
+    "suggestions": False,
+    "tokens": False,
+    "rules": False,
+    "basename": False,
     "manifest": False,
     "importer": False,
     "critical": True,
     "warning": True,
     "error": True,
-    "info": True,
+    "info": False,
     "verbose": False,
 }
 

@@ -71,15 +71,15 @@ def main() -> None:
     debug_print("info", f"Assistant version: {APP_VERSION}")
     print()
     print("Selected import settings:")
-    print(f"Assistant version: {APP_VERSION}")
-    print(f"ZIP:             {zip_path}")
-    print(f"Library root:    {library_root}")
-    print(f"Target library:  {target_library}")
-    print(f"Path variable:   {config.get('path_variable')}")
-    print(f"Footprint dir:   {library_settings.get('footprint_dir')}")
-    print(f"Symbol file:     {library_settings.get('symbol_file')}")
-    print(f"Nickname:        {library_settings.get('nickname')}")
-    print(f"Prefix:          {library_settings.get('prefix')}")
+    print(f"Assistant version..{APP_VERSION}")
+    print(f"ZIP................{zip_path}")
+    print(f"Library root.......{library_root}")
+    print(f"Target library.....{target_library}")
+    print(f"Path variable......{config.get('path_variable')}")
+    print(f"Footprint dir......{library_settings.get('footprint_dir')}")
+    print(f"Symbol file........{library_settings.get('symbol_file')}")
+    print(f"Nickname...........{library_settings.get('nickname')}")
+    print(f"Prefix.............{library_settings.get('prefix')}")
     print()
     print("Resolved target paths:")
     print(f"Footprint/model folder .. {target_footprint_dir}")
@@ -131,9 +131,11 @@ def main() -> None:
 
     selected_files = select_import_files(found_files)
 
-    confirm_manifest = input("Create preview manifest? [Y/n]: ").strip().lower()
+    confirm_manifest = input("Create preview manifest? [y/N]: ").strip().lower()
 
-    if confirm_manifest in ["", "y", "yes"]:
+    if confirm_manifest in ["", "n", "no"]:
+        debug_print("verbose", "Preview manifest skipped.")
+    else:
         create_preview_manifest(
             selected_files=selected_files,
             extract_root=extract_root,
@@ -141,8 +143,6 @@ def main() -> None:
             library_settings=library_settings,
             basename=basename,
         )
-    else:
-        debug_print("verbose", "Preview manifest skipped.")
 
     debug_print("verbose", "")
     debug_print("verbose", "")
@@ -163,15 +163,15 @@ def main() -> None:
         print("Import canceled. No files were copied.")
 
     save_config(config)
-    print()
-    print(f"Config saved: {CONFIG_PATH}")
-
+    debug_print("verbose", "")
+    debug_print("verbose", f"Config saved: {CONFIG_PATH}")
+    # TODO: convert each print statement based on flags from earlier instead of all this "maybe I did it, maybe I didn't"
     print()
     print(f"Version {APP_VERSION} complete.")
-    print("Footprint/model files may have been copied if IMPORT was confirmed.")
-    print("The script attempted to update copied footprint internals.")
-    print("Imported footprints were marked with review metadata properties.")
-    print("Symbols were not merged.")
+    #    print("Footprint/model files may have been copied if IMPORT was confirmed.")
+    debug_print("verbose", "The script attempted to update copied footprint internals.")
+    debug_print("verbose", "Imported footprints were marked with review metadata properties.")
+    debug_print("verbose", "Symbols were not merged.")
 
 
 if __name__ == "__main__":

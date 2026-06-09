@@ -1,5 +1,6 @@
 from pathlib import Path
 from kia.suggestions import suggest_defaults_from_rules
+from kia.debug import debug_print
 
 
 def prompt_with_default(label: str, default: str = "") -> str:

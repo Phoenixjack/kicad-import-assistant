@@ -203,7 +203,7 @@ Future goals include:
 
 ## Requirements
 
-* Python 3.12 or newer recommended
+* Python 3.12 or newer required
 * Tkinter, included with most standard Python installs
 * Windows currently used for development/testing
 

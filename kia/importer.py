@@ -2,6 +2,7 @@ import re
 import shutil
 import uuid
 from pathlib import Path
+from kia.debug import debug_print
 
 
 def confirm_import() -> bool:
@@ -10,11 +11,11 @@ def confirm_import() -> bool:
 
     This avoids accidental Enter/Y imports.
     """
-    print()
-    print("WRITE CONFIRMATION REQUIRED")
-    print("This will copy renamed footprint/model files into the target library folder.")
-    print("It will update the copied footprint internal name and 3D model path.")
-    print("It will NOT merge symbols yet.")
+    debug_print("verbose", "")
+    debug_print("verbose", "WRITE CONFIRMATION REQUIRED")
+    debug_print("verbose", "This will copy renamed footprint/model files into the target library folder.")
+    debug_print("verbose", "It will update the copied footprint internal name and 3D model path.")
+    debug_print("verbose", "It will NOT merge symbols yet.")
     print()
     confirmation = input("Type IMPORT to continue, or anything else to cancel: ").strip()
 
@@ -172,9 +173,9 @@ def update_footprint_internal_name(
     footprint_path.write_text(updated_text, encoding="utf-8")
 
     print()
-    print("Updated footprint internal name:")
-    print(f"  {footprint_path.name}")
-    print(f"  Name: {basename}")
+    debug_print("importer", "Updated footprint internal name:")
+    debug_print("importer", f"  {footprint_path.name}")
+    debug_print("importer", f"  Name: {basename}")
 
 
 def build_default_model_block(model_path_in_kicad: str) -> str:
@@ -221,10 +222,10 @@ def update_footprint_model_path(
     if replacement_count > 0:
         footprint_path.write_text(updated_text, encoding="utf-8")
 
-        print()
-        print("Updated footprint 3D model path:")
-        print(f"  {footprint_path.name}")
-        print(f"  Model: {model_path_in_kicad}")
+        debug_print("importer", "")
+        debug_print("importer", "Updated footprint 3D model path:")
+        debug_print("importer", f"  {footprint_path.name}")
+        debug_print("importer", f"  Model: {model_path_in_kicad}")
         return
 
     model_block = build_default_model_block(model_path_in_kicad)
@@ -243,10 +244,10 @@ def update_footprint_model_path(
 
     footprint_path.write_text(updated_text, encoding="utf-8")
 
-    print()
-    print("Added footprint 3D model block:")
-    print(f"  {footprint_path.name}")
-    print(f"  Model: {model_path_in_kicad}")
+    debug_print("importer", "")
+    debug_print("importer", "Added footprint 3D model block:")
+    debug_print("importer", f"  {footprint_path.name}")
+    debug_print("importer", f"  Model: {model_path_in_kicad}")
 
 
 def copy_selected_import_files(
@@ -329,15 +330,15 @@ def copy_selected_import_files(
                 importer_version=f"V{app_version}",
             )
 
-    print()
-    print("Copied files:")
+    debug_print("importer", "")
+    debug_print("importer", "Copied files:")
     if not copied_files:
-        print("  No footprint/model files were copied.")
+        debug_print("importer", "  No footprint/model files were copied.")
     else:
         for row in copied_files:
-            print(f"  {row['type']}:")
-            print(f"    Source: {row['source']}")
-            print(f"    Target: {row['target']}")
+            debug_print("importer", f"  {row['type']}:")
+            debug_print("importer", f"    Source: {row['source']}")
+            debug_print("importer", f"    Target: {row['target']}")
 
     return copied_files
 
@@ -423,9 +424,9 @@ def add_import_metadata_properties(
 
     footprint_path.write_text(updated_text, encoding="utf-8")
 
-    print()
-    print("Added import metadata properties:")
-    print(f"  {footprint_path.name}")
+    debug_print("importer", "")
+    debug_print("importer", "Added import metadata properties:")
+    debug_print("importer", f"  {footprint_path.name}")
     for property_name, property_value in properties_to_add.items():
-        print(f"  {property_name}: {property_value}")
+        debug_print("importer", f"  {property_name}: {property_value}")
 

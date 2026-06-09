@@ -1,6 +1,6 @@
 from pathlib import Path
 from tkinter import filedialog
-
+from kia.debug import debug_print
 from kia.config import resolve_path
 
 
@@ -68,18 +68,18 @@ def select_library_root(config: dict) -> Path:
 
     library_root = Path(selected_folder)
 
+    debug_print("dialogs", "")
+    debug_print("dialogs", "Selected:")
+    debug_print("dialogs", f"  {library_root}")
     if library_root.suffix.lower() == ".pretty":
-        print()
-        print("WARNING:")
-        print("You selected a .pretty folder as the library root.")
-        print("This script expects the parent custom library folder.")
-        print()
-        print("Selected:")
-        print(f"  {library_root}")
-        print()
-        print("Using parent folder instead:")
-        print(f"  {library_root.parent}")
-        print()
+        debug_print("dialogs", "")
+        debug_print("dialogs", "WARNING:")
+        debug_print("dialogs", "You selected a .pretty folder as the library root.")
+        debug_print("dialogs", "This script expects the parent custom library folder.")
+        debug_print("dialogs", "")
+        debug_print("dialogs", "Using parent folder instead:")
+        debug_print("dialogs", f"  {library_root.parent}")
+        debug_print("dialogs", "")
 
         library_root = library_root.parent
 

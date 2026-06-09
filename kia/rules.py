@@ -1,5 +1,6 @@
 import json
 from pathlib import Path
+from kia.debug import debug_print
 
 
 SCRIPT_DIR = Path(__file__).resolve().parent.parent
@@ -26,9 +27,9 @@ def load_naming_rules() -> dict:
     If the rules file is missing or invalid, return an empty rule set.
     """
     if not RULES_PATH.exists():
-        print()
-        print(f"Naming rules file not found: {RULES_PATH}")
-        print("Continuing with no naming rules.")
+        debug_print("rules", "")
+        debug_print("rules", f"Naming rules file not found: {RULES_PATH}")
+        debug_print("rules", "Continuing with no naming rules.")
         return {"rules": []}
 
     try:
@@ -36,18 +37,18 @@ def load_naming_rules() -> dict:
             rules = json.load(file)
 
         if "rules" not in rules or not isinstance(rules["rules"], list):
-            print()
-            print("Naming rules file is missing a valid 'rules' list.")
-            print("Continuing with no naming rules.")
+            debug_print("rules", "")
+            debug_print("rules", "Naming rules file is missing a valid 'rules' list.")
+            debug_print("rules", "Continuing with no naming rules.")
             return {"rules": []}
 
         return rules
 
     except json.JSONDecodeError as error:
-        print()
-        print(f"Naming rules file contains invalid JSON: {RULES_PATH}")
-        print(error)
-        print("Continuing with no naming rules.")
+        debug_print("rules", "")
+        debug_print("rules", f"Naming rules file contains invalid JSON: {RULES_PATH}")
+        debug_print("rules", error)
+        debug_print("rules", "Continuing with no naming rules.")
         return {"rules": []}
 
 
@@ -84,6 +85,7 @@ def suggest_defaults_from_rules(found_files: dict) -> dict:
     """
     Suggest naming defaults using external naming rules.
     """
+    print("I'M IN THE RULES!")
     defaults = DEFAULT_NAMING_DEFAULTS.copy()
     rules_data = load_naming_rules()
     combined_names = collect_detected_names(found_files)
@@ -98,18 +100,18 @@ def suggest_defaults_from_rules(found_files: dict) -> dict:
         return defaults
 
     if len(matched_rules) > 1:
-        print()
-        print("Multiple naming rules matched. Using the first one:")
+        debug_print("info", "")
+        debug_print("info", "Multiple naming rules matched. Using the first one:")
         for rule in matched_rules:
-            print(f"  - {rule.get('name', '<unnamed rule>')}")
+            debug_print("info", f"  - {rule.get('name', '<unnamed rule>')}")
 
     selected_rule = matched_rules[0]
     rule_defaults = selected_rule.get("defaults", {})
 
     defaults.update(rule_defaults)
 
-    print()
-    print("Naming rule matched:")
-    print(f"  {selected_rule.get('name', '<unnamed rule>')}")
+    debug_print("info", "")
+    debug_print("info", "Naming rule matched:")
+    debug_print("info", f"  {selected_rule.get('name', '<unnamed rule>')}")
 
     return defaults

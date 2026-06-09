@@ -2,6 +2,7 @@ import copy
 import json
 import os
 from pathlib import Path
+from kia.debug import debug_print
 
 
 SCRIPT_DIR = Path(__file__).resolve().parent.parent
@@ -43,7 +44,7 @@ def load_config() -> dict:
     If the config does not exist or is invalid, return default settings.
     """
     if not CONFIG_PATH.exists():
-        print(f"No config found. Using defaults: {CONFIG_PATH}")
+        debug_print("info", f"No config found. Using defaults: {CONFIG_PATH}")
         return copy.deepcopy(DEFAULT_CONFIG)
 
     try:
@@ -66,9 +67,9 @@ def load_config() -> dict:
         return config
 
     except json.JSONDecodeError as error:
-        print(f"Config file contains invalid JSON: {CONFIG_PATH}")
-        print(error)
-        print("Using defaults instead.")
+        debug_print("error", f"Config file contains invalid JSON: {CONFIG_PATH}")
+        debug_print("error", error)
+        debug_print("error", "Using defaults instead.")
         return copy.deepcopy(DEFAULT_CONFIG)
 
 
