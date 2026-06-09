@@ -20,7 +20,7 @@ The project is being built around a cautious import workflow:
 
 Early development / work in progress.
 
-Current version: **V0.6.1**
+Current version: **V0.6.2**
 
 Current features:
 
@@ -151,7 +151,7 @@ Filename-based suggestion rules used to prefill naming fields during import.
 
 This tool is intentionally cautious.
 
-As of version **V0.6.1**, the tool can copy and rename selected footprint and STEP/STP model files into the configured target `.pretty` folder, but only after explicit confirmation.
+As of version **V0.6.2**, the tool can copy and rename selected footprint and STEP/STP model files into the configured target `.pretty` folder, but only after explicit confirmation.
 
 Before writing files, the tool requires the user to type:
 
