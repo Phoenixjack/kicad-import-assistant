@@ -1,50 +1,23 @@
 """
 KiCad Import Assistant
 
-Purpose:
-Import vendor ZIP files containing KiCad footprints, symbols, and 3D models
-into a custom KiCad library structure.
+Main entry point for the standalone KiCad import workflow.
 
-Current version:
-0.8.1
+This script coordinates:
+- config loading
+- ZIP selection/extraction
+- file discovery
+- naming prompts
+- preview manifest generation
+- footprint/model import
+- symbol preview and merge workflow
+- final status reporting
 
-Current behavior:
+Detailed behavior, safety notes, compatibility notes, and version history are
+documented in README.md, FEATURES.md, and VERSION_HISTORY.md.
+"""
 
-* Select a vendor ZIP file.
-* Select a KiCad custom library root.
-* Load naming schema and suggestion-rule JSON files.
-* Extract the vendor ZIP to a temporary folder.
-* Detect .kicad_mod, .kicad_sym, .step, and .stp files.
-* Resolve the target footprint/model folder.
-* Resolve the target .kicad_sym file from config or by scanning the target .pretty folder.
-* Suggest naming defaults from detected filenames.
-* Prompt for naming tokens using schema-driven menus where available.
-* Generate a standardized basename.
-* Create a temporary edited symbol preview file when a source symbol is available.
-* Update the preview symbol name.
-* Update the preview symbol Footprint property.
-* Check whether the resolved target symbol library already contains the generated symbol.
-* Create a timestamped backup of the target symbol library after IMPORT when symbol prechecks pass.
-* Optionally create a preview manifest CSV.
-* Require hard confirmation before writing files.
-* Copy/rename selected footprint and STEP/STP model files.
-* Update copied footprint internal name, Value field, 3D model path, and import metadata.
-* Refuse to overwrite existing footprint/model files.
-* Report final operation status using import result flags.
-* Leave target .kicad_sym library contents unchanged for now, except for timestamped backup files.
-
-Future goals:
-
-* Safely merge previewed symbols into target .kicad_sym files.
-* Refuse symbol merge if the target symbol already exists.
-* Add stronger validation from the naming schema.
-* Add backup/rollback behavior for copied footprint/model files.
-* Add batch/manifest mode.
-* Explore dialog-based and/or KiCad plugin workflows.
-  """
-
-
-APP_VERSION = "0.8.1"
+APP_VERSION = "0.9.0"
 
 import tkinter as tk
 from kia.debug import debug_print
@@ -59,6 +32,7 @@ from kia.symbol_editor import (
     create_symbol_preview_file,
     check_symbol_merge_preconditions,
     create_symbol_library_backup,
+    merge_symbol_preview_into_target,
 )
 from kia.schema import load_naming_schema
 from kia.importer import (
@@ -176,12 +150,13 @@ def main() -> None:
         "model_reference_updated": False,
         "model_reference_added": False,
         "metadata_added": False,
-        "symbols_merged": False,
         "symbol_preview_created": False,
         "symbol_name_updated": False,
         "symbol_footprint_property_updated": False,
         "symbol_backup_created": False,
         "symbol_backup_path": None,
+        "symbol_merged": False,
+        "symbol_merge_reason": "Symbol merge was not attempted.",
     }
     
     selected_files = select_import_files(found_files)
@@ -280,6 +255,21 @@ def main() -> None:
                 import_result["symbol_backup_created"] = True
                 import_result["symbol_backup_path"] = symbol_backup_path
 
+                merge_result = merge_symbol_preview_into_target(
+                    preview_symbol_file=symbol_preview_result.get("preview_symbol"),
+                    target_symbol_file=target_symbol_file,
+                    new_symbol_name=basename,
+                )
+
+                import_result.update(merge_result)
+            else:
+                import_result["symbol_merge_reason"] = "Symbol backup was not created; merge skipped."
+        else:
+            import_result["symbol_merge_reason"] = symbol_merge_precheck.get(
+                "reason",
+                "Symbol merge precheck failed.",
+            )
+
     else:
         print()
         print("Import canceled. No files were copied.")
@@ -308,7 +298,8 @@ def main() -> None:
         print(f"  Symbol preview created: {'YES' if import_result.get('symbol_preview_created') else 'NO'}")
         print(f"  Symbol name preview updated: {'YES' if import_result.get('symbol_name_updated') else 'NO'}")
         print(f"  Symbol Footprint property preview updated: {'YES' if import_result.get('symbol_footprint_property_updated') else 'NO'}")
-        print("  Symbol merged: NO - preview only")
+        print(f"  Symbol merged: {'YES' if import_result.get('symbol_merged') else 'NO'}")
+        print(f"    Reason: {import_result.get('symbol_merge_reason')}")
         print(f"  Symbol backup created: {'YES' if import_result.get('symbol_backup_created') else 'NO'}")
 
         if import_result.get("symbol_backup_path"):
@@ -316,7 +307,7 @@ def main() -> None:
     else:
         print("  Files copied: NO - import was canceled")
         print("  Footprint updates: NOT ATTEMPTED")
-        print("  Symbol merged: NO - preview only")
+        print("  Symbol merged: NO")
 
 
 if __name__ == "__main__":

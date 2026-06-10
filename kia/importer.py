@@ -53,7 +53,7 @@ def check_target_file_available(target_path: Path) -> None:
         print("ERROR: Target file already exists:")
         print(f"  {target_path}")
         print()
-        print(f"Version {APP_VERSION} refuses to overwrite existing files.")
+        print("Overwrite protection is enabled; existing files will not be replaced.")
         raise SystemExit
 
 
@@ -345,7 +345,6 @@ def copy_selected_import_files(
         "model_reference_updated": False,
         "model_reference_added": False,
         "metadata_added": False,
-        "symbols_merged": False,
     }
     
     footprint_dir_name = library_settings.get("footprint_dir", "")

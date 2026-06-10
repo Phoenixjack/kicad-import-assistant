@@ -1,83 +1,82 @@
 # KiCad Import Assistant
 
-KiCad Import Assistant is a small Python utility for importing vendor-provided KiCad footprints, symbols, and 3D models into a custom KiCad library structure.
+KiCad Import Assistant is a standalone Python utility for importing vendor-provided KiCad footprints, symbols, and 3D models into a custom KiCad library structure.
 
-The project is built around a cautious import workflow:
+The tool is designed around a cautious workflow: preview first, confirm explicitly, create backups where needed, and refuse unsafe overwrites.
+
+## Current Version
+
+**V0.9.0**
+
+## What It Does
+
+KiCad Import Assistant can currently:
+
+* Select a vendor ZIP file.
+* Extract the ZIP to a temporary folder.
+* Detect KiCad footprint, symbol, and STEP/STP model files.
+* Suggest naming defaults from JSON rules.
+* Prompt for naming tokens using schema-driven menus.
+* Generate standardized footprint/symbol/model basenames.
+* Copy and rename footprint/model files into a target `.pretty` folder.
+* Update copied footprint internals:
+
+  * internal footprint name
+  * visible `Value` field
+  * 3D model reference
+  * hidden import/review metadata
+* Create an edited symbol preview file.
+* Update symbol names, nested KiCad unit names, and symbol `Footprint` properties.
+* Resolve the correct target `.kicad_sym` file.
+* Create a timestamped backup of the target symbol library.
+* Merge the previewed symbol into the target symbol library when safety checks pass.
+* Refuse duplicate footprint/model overwrites.
+* Refuse duplicate symbol merges.
+
+More detailed feature notes are available in [`FEATURES.md`](FEATURES.md).
+
+Version-by-version history is available in [`VERSION_HISTORY.md`](VERSION_HISTORY.md).
+
+## Basic Workflow
+
+The current workflow is:
 
 1. Select a vendor ZIP file.
-2. Select a custom KiCad library root folder.
-3. Extract the ZIP to a temporary folder.
-4. Detect `.kicad_mod`, `.kicad_sym`, `.step`, and `.stp` files.
-5. Resolve the target footprint/model folder and symbol library path.
-6. Suggest naming defaults from JSON-based rules.
-7. Prompt for naming-convention fields using schema-driven token menus.
-8. Generate a standardized target basename.
-9. Create a temporary edited symbol preview file.
-10. Check whether the target symbol library can safely accept the previewed symbol.
-11. Optionally create a preview manifest.
-12. Require explicit confirmation before writing files.
-13. Copy and rename selected footprint/model files.
-14. Update copied footprint metadata where possible.
-15. Create a timestamped backup of the target symbol library when symbol merge prechecks pass.
+2. Select the custom KiCad library root.
+3. Resolve the target `.pretty` folder and `.kicad_sym` file.
+4. Extract and scan the ZIP.
+5. Suggest naming defaults.
+6. Prompt for naming tokens.
+7. Generate the final basename.
+8. Create a symbol preview.
+9. Optionally create a manifest CSV.
+10. Require the user to type `IMPORT`.
+11. Copy/rename footprint and model files.
+12. Update the copied footprint.
+13. Back up the target symbol library.
+14. Merge the edited symbol into the target symbol library.
 
-## Project Status
+## Safety Behavior
 
-Early development / work in progress.
+This tool is intentionally conservative.
 
-Current version: **V0.8.1**
+Before writing files, it requires this exact confirmation:
 
-Current features:
+```text
+IMPORT
+```
 
-* GUI file picker for selecting a vendor ZIP file
-* GUI folder picker for selecting the custom KiCad library root
-* JSON config support
-* Remembers last ZIP folder, library root, target library, and recent naming-token values
-* Safely falls back if remembered folders no longer exist
-* Automatically handles accidentally selecting a `.pretty` folder as the library root
-* Extracts ZIP files to a temporary folder
-* Detects KiCad footprint, symbol, and 3D model files
-* Resolves target symbol library path from config or by scanning the target `.pretty` folder
-* Loads naming suggestions from JSON
-* Loads naming vocabulary/options from JSON schema
-* Provides numbered token menus for common naming fields
-* Allows direct token entry and free-text custom values
-* Generates a standardized target basename
-* Creates a temporary edited symbol preview file
-* Updates the preview symbol name
-* Updates the preview symbol `Footprint` property
-* Checks whether the resolved target symbol library already contains the generated symbol name
-* Creates a timestamped backup of the target symbol library after `IMPORT` when symbol merge prechecks pass
-* Optionally creates a preview manifest CSV
-* Performs an early duplicate check by MPN
-* Copies and renames selected footprint files into the target `.pretty` folder
-* Copies and renames selected STEP/STP model files into the target `.pretty` folder
-* Requires hard confirmation before modifying files
-* Refuses to overwrite existing target files
-* Updates copied footprint internal names when possible
-* Updates copied footprint `Value` fields when possible
-* Adds or updates copied footprint 3D model references
-* Adds hidden import/review metadata fields to copied footprints
-* Records importer version in copied footprints
-* Reports final import status using operation result flags
-* Provides lightweight debug-output categories for development/testing
+The tool currently refuses to overwrite existing footprint/model files.
 
-## Why This Exists
+Before merging a symbol, it checks whether the generated symbol already exists in the resolved target symbol library.
 
-Vendor-provided KiCad files are often inconsistent, messy, or named in ways that do not match a personal/custom library convention.
+Before modifying a target `.kicad_sym` library, it creates a timestamped backup file.
 
-This tool is intended to reduce repetitive manual cleanup when importing parts such as:
-
-* footprints
-* symbols
-* STEP/STP 3D models
-* connector libraries
-* vendor ZIP exports
-
-The goal is not to replace KiCad’s library management. The goal is to assist with the boring, error-prone parts of organizing custom libraries.
+Even with these safeguards, this is still early-development software. Back up your KiCad libraries before testing it against production libraries.
 
 ## Intended Library Structure
 
-This project currently assumes a custom KiCad library folder similar to:
+The project currently assumes a custom KiCad library layout similar to:
 
 ```text
 CUSTOM_LIBRARIES/
@@ -144,13 +143,13 @@ SS-53000-003  Exact manufacturer/orderable part number
 
 ## JSON Files
 
-The project currently separates local config, naming vocabulary, and suggestion rules.
+The project uses separate JSON files for local config, naming vocabulary, and suggestion rules.
 
 ```text
 kicad_import_assistant_config.example.json
 ```
 
-Example user/local configuration. The real local config file is intentionally ignored by Git.
+Example local/user configuration. The real local config file is intentionally ignored by Git.
 
 ```text
 kicad_import_naming_schema.json
@@ -164,83 +163,22 @@ kicad_import_suggestion_rules.json
 
 Filename-based suggestion rules used to prefill naming fields during import.
 
-## Current Safety Behavior
+## KiCad Compatibility
 
-This tool is intentionally cautious.
+Development/testing is currently being done against a modern KiCad environment using current KiCad S-expression symbol and footprint formats.
 
-As of **V0.8.1**, the tool can copy and rename selected footprint and STEP/STP model files into the configured target `.pretty` folder, but only after explicit confirmation.
+Known state:
 
-Before writing files, the tool requires the user to type:
-
-```text
-IMPORT
-```
-
-The tool currently refuses to overwrite existing footprint/model target files.
-
-After copying a footprint, the tool attempts to update:
-
-* internal footprint name
-* footprint `Value` field
-* 3D model reference
-* hidden import/review metadata fields
-
-The tool can also create a temporary edited symbol preview file. The preview symbol file is written to the temporary extraction folder and does **not** modify the target `.kicad_sym` library.
-
-The symbol preview attempts to update:
-
-* symbol name
-* symbol `Footprint` property
-
-The tool also checks the resolved target symbol library before future merge work:
-
-* verifies that the target `.kicad_sym` file exists
-* checks whether the generated symbol name already exists in the target library
-* reports whether the symbol merge precheck passed
-* creates a timestamped backup of the target symbol library after `IMPORT` when prechecks pass
-
-The tool currently does **not**:
-
-* merge symbols into `.kicad_sym` libraries
-* append symbols to target `.kicad_sym` files
-* modify target `.kicad_sym` contents other than creating backup copies
-* update symbol aliases/alternate units beyond first-pass preview edits
-* perform full KiCad S-expression validation
-* guarantee 3D model orientation
-* guarantee pad/schematic correctness
-* replace human review
-
-Imported footprints are marked with review metadata fields such as:
-
-```text
-ImportedBy
-ImportStatus
-Needs3DModelValidation
-```
-
-## Planned Features
-
-Future goals include:
-
-* Safely merge previewed symbols into a target `.kicad_sym` file
-* Refuse symbol merge when a matching symbol already exists
-* Update symbol `Footprint` properties during real merge
-* Improve duplicate detection
-* Add backup/rollback behavior for copied footprint/model files
-* Add batch import mode
-* Add manifest-driven import mode
-* Add stronger validation from naming schema
-* Add safer ZIP extraction behavior
-* Add optional 3D model transform prompts
-* Add a Tkinter dialog-based workflow
-* Explore a future KiCad plugin wrapper
-* Add a more Sonarr/Radarr-style import review workflow
+* Tested primarily with recent KiCad 9/10-style files and workflows.
+* KiCad 8/9-style S-expression files are expected to be broadly compatible, but not guaranteed.
+* KiCad 6/7 compatibility has not been tested.
+* Legacy or unusual vendor file formats may require manual review or parser updates.
 
 ## Requirements
 
-* Python 3.12 or newer required
+* Python 3.12 or newer
 * Tkinter, included with most standard Python installs
-* Windows currently used for development/testing
+* Windows is currently used for development/testing
 
 No KiCad Python plugin or KiCad CLI integration is currently required.
 
