@@ -190,6 +190,9 @@ Debug output is still under active cleanup. Future work may add more structured 
 
 The tool currently does not:
 
+* Does not currently query online part databases or distributor APIs.
+* Does not currently enrich part metadata from manufacturer part numbers.
+* Does not currently auto-suggest naming fields from verified external part data.
 * overwrite existing footprint/model files
 * overwrite existing symbol definitions
 * perform full KiCad S-expression validation
@@ -201,3 +204,50 @@ The tool currently does not:
 * operate as a native KiCad plugin
 
 Human review is still required.
+
+## Future Metadata Enrichment Goals
+
+- Add part-class-specific schema profiles so connector, IC, passive, module, power, mechanical, and generic imports can use different prompt vocabularies.
+- Separate physical import targets from naming/prompt profiles.
+- Avoid using connector-specific role/orientation prompts for non-connector parts.
+- Add stronger guardrails for target folders containing multiple active `.kicad_sym` libraries.
+- Warn if more than N active .kicad_sym files are found in one .pretty folder.
+- Refuse automatic symbol merge if multiple active symbol libraries exist and none matches the .pretty folder name.
+- Add an interactive symbol-library selection step when multiple valid target libraries are present.
+- Print the candidate list clearly.
+- Require the user to pick one manually or fix config.
+
+
+Future versions may add optional online metadata enrichment.
+
+The intended workflow would be:
+
+1. Detect or ask for a manufacturer part number.
+2. Query one or more configured metadata providers.
+3. Present the best candidate match to the user.
+4. Allow the user to accept, reject, or manually override the result.
+5. Use accepted metadata to prefill naming fields and symbol properties.
+6. Ask manual questions only for fields that could not be confidently inferred.
+
+Possible metadata sources may include provider APIs such as Nexar/Octopart, DigiKey, Mouser, SnapMagic/SnapEDA, or other structured part-data services.
+
+Potential fields to enrich:
+
+* manufacturer
+* manufacturer part number
+* short description
+* datasheet URL
+* product page URL
+* package/case
+* contact count or pin count
+* pitch
+* mount style
+* orientation
+* base series
+* lifecycle/status
+* RoHS/REACH data
+* distributor SKUs
+
+Metadata enrichment should remain optional. The core importer should continue working offline from local files alone.
+
+External metadata should be treated as a suggestion requiring user review, not as unquestioned truth. Geometry, pin mapping, footprint correctness, 3D model orientation, and schematic correctness should still require human validation.

@@ -14,6 +14,7 @@ DEFAULT_CONFIG = {
     "last_library_root": "%USERPROFILE%/Documents/KiCAD/CUSTOM_LIBRARIES",
     "last_target_library": "CONNECTORS",
     "path_variable": "CHRIS_KICAD_LIB",
+    "keep_temp_files": False,
     "libraries": {
         "CONNECTORS": {
             "prefix": "CONN",
@@ -40,37 +41,34 @@ def resolve_path(path_value: str) -> Path:
 
 def load_config() -> dict:
     """
-    Load JSON config from disk.
-    If the config does not exist or is invalid, return default settings.
+    Load config from disk, merged over defaults.
+
+    Invalid JSON should stop the program instead of silently falling back
+    to DEFAULT_CONFIG.
     """
+    config = DEFAULT_CONFIG.copy()
+
     if not CONFIG_PATH.exists():
-        debug_print("config", f"No config found. Using defaults: {CONFIG_PATH}")
-        return copy.deepcopy(DEFAULT_CONFIG)
+        save_config(config)
+        return config
 
     try:
         with CONFIG_PATH.open("r", encoding="utf-8") as file:
             loaded_config = json.load(file)
 
-        config = copy.deepcopy(DEFAULT_CONFIG)
-
-        for key, value in loaded_config.items():
-            if key != "libraries":
-                config[key] = value
-
-        loaded_libraries = loaded_config.get("libraries", {})
-        for library_name, library_settings in loaded_libraries.items():
-            if library_name not in config["libraries"]:
-                config["libraries"][library_name] = {}
-
-            config["libraries"][library_name].update(library_settings)
-
-        return config
-
     except json.JSONDecodeError as error:
-        print(f"Config file contains invalid JSON: {CONFIG_PATH}")
-        print(error)
-        dprint("Using defaults instead.")
-        return copy.deepcopy(DEFAULT_CONFIG)
+        print()
+        print("ERROR: Config file is not valid JSON.")
+        print(f"  File: {CONFIG_PATH}")
+        print(f"  Line: {error.lineno}")
+        print(f"  Column: {error.colno}")
+        print(f"  Problem: {error.msg}")
+        print()
+        print("Fix the config file before running the importer.")
+        raise SystemExit
+
+    config.update(loaded_config)
+    return config
 
 
 def save_config(config: dict) -> None:

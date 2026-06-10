@@ -24,7 +24,12 @@ from kia.debug import debug_print
 from pathlib import Path
 from kia.config import CONFIG_PATH, load_config, save_config
 from kia.dialogs import select_zip_file, select_library_root
-from kia.zip_scan import extract_zip_to_temp, find_import_files, print_import_file_summary
+from kia.zip_scan import (
+    extract_zip_to_temp,
+    find_import_files,
+    cleanup_temp_folder,
+    print_import_file_summary,
+)
 from kia.naming import build_basename_from_prompts, suggest_defaults_from_files, prompt_with_default
 from kia.manifest import create_preview_manifest, select_import_files
 from kia.symbols import resolve_target_symbol_file
@@ -52,7 +57,7 @@ def main() -> None:
     config = load_config()
     
     naming_schema = load_naming_schema()
-
+    
     root = tk.Tk()
     root.withdraw()
 
@@ -107,6 +112,7 @@ def main() -> None:
         print(f"Missing target footprint/model folder: {target_footprint_dir}")
 
     extract_root = extract_zip_to_temp(zip_path)
+    temp_cleanup_performed = False
     found_files = find_import_files(extract_root)
     print_import_file_summary(found_files, extract_root)
     
@@ -309,6 +315,17 @@ def main() -> None:
         print("  Footprint updates: NOT ATTEMPTED")
         print("  Symbol merged: NO")
 
+    keep_temp_files = bool(config.get("keep_temp_files", True))
+
+    temp_cleanup_performed = cleanup_temp_folder(
+        temp_folder=extract_root,
+        keep_temp_files=keep_temp_files,
+    )
+
+    print(f"  Temp folder cleanup: {'YES' if temp_cleanup_performed else 'NO'}")
+
+    if keep_temp_files and extract_root is not None:
+        print(f"    Temp folder kept: {extract_root}")
 
 if __name__ == "__main__":
     main()

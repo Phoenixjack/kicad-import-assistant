@@ -1,4 +1,5 @@
 import tempfile
+import shutil
 import zipfile
 from pathlib import Path
 from kia.debug import debug_print
@@ -81,3 +82,32 @@ def print_import_file_summary(found_files: dict, extract_root: Path) -> None:
         for file_path in files:
             relative_path = file_path.relative_to(extract_root)
             debug_print("zip", f"  - {relative_path}")
+
+
+def cleanup_temp_folder(temp_folder: Path | None, keep_temp_files: bool) -> bool:
+    """
+    Delete the temporary import folder unless keep_temp_files is enabled.
+
+    Returns True if cleanup was performed.
+    Returns False if cleanup was skipped or could not be performed.
+    """
+    if keep_temp_files:
+        return False
+
+    if temp_folder is None:
+        return False
+
+    if not temp_folder.exists():
+        return False
+
+    temp_folder_name = temp_folder.name.lower()
+
+    if not temp_folder_name.startswith("kicad_import_"):
+        print()
+        print("WARNING:")
+        print("Refusing to delete temp folder because it does not look like one of ours:")
+        print(f"  {temp_folder}")
+        return False
+
+    shutil.rmtree(temp_folder)
+    return True
