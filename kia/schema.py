@@ -15,7 +15,9 @@ def load_naming_schema() -> dict:
     If the schema cannot be loaded, return an empty dict so the importer
     can fall back to plain text prompts.
     """
-    debug_print("config", f"Loading naming schema: {NAMING_SCHEMA_PATH}")
+    
+    debug_print("schema", f"Loading naming schema: {NAMING_SCHEMA_PATH}", stage="load")
+    debug_print("schema", "Naming schema loaded successfully.", stage="load")
 
     if not NAMING_SCHEMA_PATH.exists():
         print()

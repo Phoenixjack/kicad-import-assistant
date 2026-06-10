@@ -1,5 +1,26 @@
 # Version History
 
+## Unreleased - Refactor/debug cleanup branch
+
+Work in progress on the `refactor-debug-cleanup` branch.
+
+Changes so far:
+
+* Adds `REFACTOR_PLAN.md` to map the planned refactor before moving code.
+* Adds severity-based developer/debug output.
+* Adds `Severity` levels:
+
+  * `ERROR`
+  * `WARNING`
+  * `INFO`
+  * `VERBOSE`
+* Adds `dbg_print()` for staged, category-filtered debug messages.
+* Adds `dbg_blank()` for formatted blank debug separator lines.
+* Keeps legacy `debug_print()` as a backward-compatible wrapper during migration.
+* Adds padded debug prefixes for easier console scanning.
+* Tests debug filtering by severity and category.
+* Keeps default debug output conservative before commit.
+
 ## V0.9.0
 
 Major milestone: first real symbol-library merge.

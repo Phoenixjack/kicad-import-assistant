@@ -21,6 +21,7 @@ APP_VERSION = "0.9.0"
 
 import tkinter as tk
 from kia.debug import debug_print
+from kia.debug import dbg_print, dbg_blank, Severity
 from pathlib import Path
 from kia.config import CONFIG_PATH, load_config, save_config
 from kia.dialogs import select_zip_file, select_library_root
@@ -71,45 +72,36 @@ def main() -> None:
         target_footprint_dir=target_footprint_dir,
         library_settings=library_settings,
     )
-    debug_print("verbose", "")
-    debug_print("verbose", f"Assistant version: {APP_VERSION}")
-    print()
-    print("Selected import settings:")
-    print(f"Assistant version..{APP_VERSION}")
-    print(f"ZIP................{zip_path}")
-    print(f"Library root.......{library_root}")
-    print(f"Target library.....{target_library}")
-    print(f"Path variable......{config.get('path_variable')}")
-    print(f"Footprint dir......{library_settings.get('footprint_dir')}")
-    print(f"Resolved symbol....{target_symbol_file}")
-    print(f"Nickname...........{library_settings.get('nickname')}")
-    print(f"Prefix.............{library_settings.get('prefix')}")
-    print()
-    print()
-    print("Resolved target paths:")
-    print(f"Footprint/model folder .. {target_footprint_dir}")
+    
+    dbg_print(f"Assistant version: {APP_VERSION}", Severity.INFO, "config")
+    dbg_blank(Severity.INFO, "config")
+    dbg_print("Selected import settings:", Severity.INFO, "config")
+    dbg_print(f"ZIP...................... {zip_path}", Severity.INFO, "config")
+    dbg_print(f"Library root............. {library_root}", Severity.VERBOSE, "config")
+    dbg_print(f"Target library........... {target_library}", Severity.INFO, "config")
+    dbg_print(f"Path variable............ {config.get('path_variable')}", Severity.INFO, "config")
+    dbg_print(f"Nickname................. {library_settings.get('nickname')}", Severity.VERBOSE, "config")
+    dbg_print(f"Prefix................... {library_settings.get('prefix')}", Severity.INFO, "config")
+    if not target_footprint_dir.exists():
+        dbg_print(" ", Severity.WARNING, "config", "load", "main")
+        dbg_print(f"Missing target footprint/model folder: {target_footprint_dir}", Severity.WARNING, "config", "load", "main")
+        dbg_print("The script may fail if this folder is needed for import.", Severity.WARNING, "config", "load", "main")
+    else:
+        dbg_print(f"Footprint dir............ {library_settings.get('footprint_dir')}", Severity.VERBOSE, "config")
+        dbg_print(f"Footprint/model folder .. {target_footprint_dir}", Severity.INFO, "config")
 
     if target_symbol_file is not None:
-        print(f"Symbol library file ..... {target_symbol_file}")
+        dbg_print(f"Symbol library file ..... {target_symbol_file}", Severity.INFO, "config")
     else:
-        print("Symbol library file ..... <not resolved>")
+        dbg_print("Symbol library file ..... <not resolved>", Severity.ERROR, "config", "RESOLVE", "MAIN")
+        
+    dbg_blank(Severity.VERBOSE, "config")
+    dbg_print(f"Raw config .............. {config}", Severity.VERBOSE, "config")
+    dbg_blank(Severity.VERBOSE, "config")
+    dbg_print(f"Library settings ........ {library_settings}", Severity.VERBOSE, "config")
+    dbg_blank(Severity.VERBOSE, "config")
 
-    print(f"Symbol resolution ....... {symbol_resolution_status}")
-    
-    debug_print("config", "")
-    debug_print("config", f"Raw config .............. {config}")
-    debug_print("config", "")
-    debug_print("config", f"Library settings ........ {library_settings}")
-    debug_print("config", "")
 
-    if not target_footprint_dir.exists():
-        print()
-        print("WARNING:")
-        print("Target footprint/model folder does not exist yet:")
-        print(f"  {target_footprint_dir}")
-        print("The script may fail if this folder is needed for import.")
-
-        print(f"Missing target footprint/model folder: {target_footprint_dir}")
 
     extract_root = extract_zip_to_temp(zip_path)
     temp_cleanup_performed = False

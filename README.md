@@ -37,6 +37,9 @@ More detailed feature notes are available in [`FEATURES.md`](FEATURES.md).
 
 Version-by-version history is available in [`VERSION_HISTORY.md`](VERSION_HISTORY.md).
 
+Development note: active refactor planning is tracked in [`REFACTOR_PLAN.md`](REFACTOR_PLAN.md) while the debug/refactor cleanup branch is in progress.
+
+
 ## Basic Workflow
 
 The current workflow is:
