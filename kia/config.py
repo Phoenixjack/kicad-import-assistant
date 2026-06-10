@@ -2,7 +2,8 @@ import copy
 import json
 import os
 from pathlib import Path
-from kia.debug import debug_print
+from kia.debug import debug_print                # PHASE OUT
+from kia.debug import dbg_print, Severity
 
 
 SCRIPT_DIR = Path(__file__).resolve().parent.parent
@@ -68,6 +69,10 @@ def load_config() -> dict:
         raise SystemExit
 
     config.update(loaded_config)
+    
+    dbg_print(f"Config loaded from {CONFIG_PATH}", Severity.VERBOSE, "config", "load", "config")
+    dbg_print(f"keep_temp_files = {config.get('keep_temp_files')}", Severity.VERBOSE, "config", "load", "config")
+
     return config
 
 

@@ -165,26 +165,53 @@ _testlibrary.kicad_sym.20260609_201609.backup
 
 ## Debug Output
 
-The tool has lightweight debug categories for development/testing.
+The tool has a lightweight developer/debug output system.
+
+Debug messages can now be filtered by:
+
+* severity
+* category
+* optional workflow stage
+* optional source/module label
+
+Current severity levels:
+
+```text
+ERROR
+WARNING
+INFO
+VERBOSE
+```
 
 Current debug categories include areas such as:
 
 ```text
 config
+schema
 zip
 files
 suggestions
+suggest
 tokens
 basename
 manifest
 importer
 symbols
-schema
-info
-verbose
+dialogs
 ```
 
-Debug output is still under active cleanup. Future work may add more structured prefixes, subcategories, and cleaner toggles.
+Example formatted debug output:
+
+```text
+[  INFO  / CONFIG ] Selected import settings:
+[  INFO  / CONFIG ] Target library........... CONNECTORS
+[ VERBOSE / SYMBOLS / RESOLVE ] Active symbol file matches after backup filter...
+```
+
+The older `debug_print()` function is currently preserved as a backward-compatible wrapper while newer code is gradually migrated to `dbg_print()`.
+
+Debug output is still under active cleanup. Future work may move more raw diagnostic `print()` calls to the staged severity/category system.
+
 
 ## Current Limitations
 
