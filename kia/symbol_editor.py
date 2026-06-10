@@ -171,15 +171,14 @@ def build_symbol_backup_path(
 
     Example:
       _testlibrary.kicad_sym
-      _testlibrary.20260609_231530.backup.kicad_sym
+      _testlibrary.kicad_sym.20260609_231530.backup
+
+    The backup intentionally does not end with .kicad_sym so normal symbol
+    library scanning does not mistake it for an active KiCad symbol library.
     """
     timestamp = datetime.now().strftime("%Y%m%d_%H%M%S")
 
-    backup_name = (
-        f"{target_symbol_file.stem}."
-        f"{timestamp}."
-        f"backup{target_symbol_file.suffix}"
-    )
+    backup_name = f"{target_symbol_file.name}.{timestamp}.backup"
 
     return target_symbol_file.with_name(backup_name)
 

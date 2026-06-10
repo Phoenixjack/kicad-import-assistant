@@ -53,9 +53,29 @@ def resolve_target_symbol_file(
         configured_path = None
         debug_print("symbols", "No configured symbol_file value found.")
 
-    symbol_matches = sorted(target_footprint_dir.glob("*.kicad_sym"))
+    all_symbol_matches = sorted(target_footprint_dir.glob("*.kicad_sym"))
 
-    debug_print("symbols", f"Symbol file matches found: {[path.name for path in symbol_matches]}")
+    symbol_matches = [
+        path for path in all_symbol_matches
+        if not is_symbol_backup_file(path)
+    ]
+
+    debug_print("symbols", f"All symbol file matches found: {[path.name for path in all_symbol_matches]}")
+    debug_print("symbols", f"Active symbol file matches after backup filter: {[path.name for path in symbol_matches]}")
+
+    folder_stem = target_footprint_dir.stem
+    preferred_symbol_name = f"{folder_stem}.kicad_sym"
+
+    folder_name_matches = [
+        path for path in symbol_matches
+        if path.name.lower() == preferred_symbol_name.lower()
+    ]
+
+    if len(folder_name_matches) == 1:
+        return (
+            folder_name_matches[0],
+            "auto-detected symbol file matching target folder name",
+        )
 
     if len(symbol_matches) == 1:
         return (
@@ -85,3 +105,32 @@ def resolve_target_symbol_file(
         None,
         "multiple .kicad_sym files found and no configured symbol file was provided",
     )
+
+
+def is_symbol_backup_file(path: Path) -> bool:
+    """
+    Return True if a .kicad_sym-looking file should be treated as a backup.
+
+    Handles older backup naming styles such as:
+      _testlibrary.20260609_193642.backup.kicad_sym
+
+    and manual backup names containing backup/bak/copy.
+    """
+    name_lower = path.name.lower()
+
+    backup_markers = [
+        ".backup.",
+        ".backup",
+        "_backup",
+        "-backup",
+        ".bak.",
+        ".bak",
+        "_bak",
+        "-bak",
+        " copy",
+        "_copy",
+        "-copy",
+    ]
+
+    return any(marker in name_lower for marker in backup_markers)
+
