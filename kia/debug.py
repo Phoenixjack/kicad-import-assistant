@@ -25,13 +25,14 @@ class Severity(IntEnum):
 #   Severity.WARNING  -> show ERROR and WARNING
 #   Severity.INFO     -> show ERROR, WARNING, and INFO
 #   Severity.VERBOSE  -> show everything
-DEBUG_MAX_SEVERITY = Severity.WARNING
+DEBUG_MAX_SEVERITY = Severity.VERBOSE
 
 DEBUG_CATEGORIES = {
     "config": False,       # loading/saving config, resolved config paths
     "schema": False,       # naming schema loading and parsing
     "zip": False,          # ZIP extraction/temp folder details
     "files": False,        # detected files, selected files
+    "libraries": True,     #
     "suggestions": False,  # JSON rule matches/defaults                              PHASE OUT
     "suggest": False,      # JSON rule matches/defaults
     "tokens": False,       # prompt/default token values
@@ -160,18 +161,28 @@ def debug_print(
     """
     Backward-compatible wrapper for old debug calls.
 
-    Old style:
-      debug_print("symbols", "message")
+    Legacy categories:
+      debug_print("verbose", "message")
+      debug_print("info", "message")
 
-    New preferred style:
-      dbg_print(
-          "message",
-          Severity.VERBOSE,
-          category="symbols",
-          stage="resolve",
-          source="symbol_resolver",
-      )
+    Domain categories:
+      debug_print("symbols", "message")
+      debug_print("schema", "message", stage="load")
     """
+    if category == "verbose":
+        dbg_print(
+            message=message,
+            severity=Severity.VERBOSE,
+        )
+        return
+
+    if category == "info":
+        dbg_print(
+            message=message,
+            severity=Severity.INFO,
+        )
+        return
+
     dbg_print(
         message=message,
         severity=Severity.VERBOSE,

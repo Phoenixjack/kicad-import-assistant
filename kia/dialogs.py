@@ -23,7 +23,7 @@ def get_existing_initial_dir(path_value: str, fallback: Path) -> str:
     return str(Path.home())
 
 
-def select_zip_file(config: dict) -> Path:
+def select_import_source(config: dict) -> Path:
     """
     Open ZIP file picker using the last ZIP folder if possible.
     """
@@ -34,8 +34,8 @@ def select_zip_file(config: dict) -> Path:
 
     zip_path = filedialog.askopenfilename(
         title="Select vendor ZIP file",
-        initialdir=initial_dir,
-        filetypes=[("ZIP files", "*.zip"), ("All files", "*.*")],
+        initialdir = initial_dir,
+        filetypes = [("ZIP files", "*.zip"), ("All files", "*.*")],
     )
 
     if not zip_path:
@@ -48,7 +48,7 @@ def select_zip_file(config: dict) -> Path:
     return zip_path
 
 
-def select_library_root(config: dict) -> Path:
+def select_library_folder(config: dict) -> Path:
     """
     Open folder picker using the last library root if possible.
     """
@@ -59,7 +59,7 @@ def select_library_root(config: dict) -> Path:
 
     selected_folder = filedialog.askdirectory(
         title="Select KiCad custom library root",
-        initialdir=initial_dir,
+        initialdir = initial_dir,
     )
 
     if not selected_folder:
@@ -67,22 +67,9 @@ def select_library_root(config: dict) -> Path:
         raise SystemExit
 
     library_root = Path(selected_folder)
-
     debug_print("dialogs", "")
     debug_print("dialogs", "Selected:")
     debug_print("dialogs", f"  {library_root}")
-    if library_root.suffix.lower() == ".pretty":
-        debug_print("dialogs", "")
-        debug_print("dialogs", "WARNING:")
-        debug_print("dialogs", "You selected a .pretty folder as the library root.")
-        debug_print("dialogs", "This script expects the parent custom library folder.")
-        debug_print("dialogs", "")
-        debug_print("dialogs", "Using parent folder instead:")
-        debug_print("dialogs", f"  {library_root.parent}")
-        debug_print("dialogs", "")
-
-        library_root = library_root.parent
-
-    config["last_library_root"] = str(library_root)
-
     return library_root
+
+

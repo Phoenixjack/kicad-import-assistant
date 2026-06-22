@@ -11,18 +11,40 @@ CONFIG_PATH = SCRIPT_DIR / "kicad_import_assistant_config.json"
 
 
 DEFAULT_CONFIG = {
-    "last_zip_folder": "%USERPROFILE%/Downloads",
-    "last_library_root": "%USERPROFILE%/Documents/KiCAD/CUSTOM_LIBRARIES",
-    "last_target_library": "CONNECTORS",
+    "last": {
+        "zip_folder": "%USERPROFILE%/Downloads",
+        "library_root": "%USERPROFILE%/Documents/KiCAD/CUSTOM_LIBRARIES",
+        "library_folder": "%USERPROFILE%/Documents/KiCAD/CUSTOM_LIBRARIES",
+        "target_library": "CONNECTORS",
+        "profile": "connector",
+    },
     "path_variable": "CHRIS_KICAD_LIB",
     "keep_temp_files": False,
     "libraries": {
         "CONNECTORS": {
             "prefix": "CONN",
-            "footprint_dir": "CONNECTORS.pretty",
-            "symbol_file": "CONNECTORS.kicad_sym",
-            "nickname": "CONNECTORS",
-        }
+            "footprint_dir": "_testCONN.pretty",
+            "symbol_file": "_testCONN.kicad_sym",
+            "nickname": "_testCONN",
+            "schema_profile": "connector",
+        },
+        "IC": {
+            "prefix": "IC",
+            "footprint_dir": "_testIC.pretty",
+            "symbol_file": "_testIC.kicad_sym",
+            "nickname": "_testIC",
+            "schema_profile": "ic",
+        },
+    },
+    "recent_values": {
+        "family": [],
+        "role": [],
+        "mount": [],
+        "orient": [],
+        "size": [],
+        "pitch": [],
+        "base": [],
+        "feature": [],
     },
 }
 

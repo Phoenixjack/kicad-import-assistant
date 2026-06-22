@@ -1,25 +1,15 @@
 # Version History
 
-## Unreleased - Refactor/debug cleanup branch
+## Unreleased - V0.10 Refactor Branch
 
-Work in progress on the `refactor-debug-cleanup` branch.
+Breaking refactor work in progress:
 
-Changes so far:
-
-* Adds `REFACTOR_PLAN.md` to map the planned refactor before moving code.
-* Adds severity-based developer/debug output.
-* Adds `Severity` levels:
-
-  * `ERROR`
-  * `WARNING`
-  * `INFO`
-  * `VERBOSE`
-* Adds `dbg_print()` for staged, category-filtered debug messages.
-* Adds `dbg_blank()` for formatted blank debug separator lines.
-* Keeps legacy `debug_print()` as a backward-compatible wrapper during migration.
-* Adds padded debug prefixes for easier console scanning.
-* Tests debug filtering by severity and category.
-* Keeps default debug output conservative before commit.
+* Introduces `run_state` as the central per-import workflow state.
+* Adds status-driven stage reporting through `run_state["status"]`.
+* Replaces flat `last_*` config keys with nested `config["last"]`.
+* Replaces manifest terminology with import plan terminology.
+* Refactors library/profile selection around selected `.pretty` folders and configured library profiles.
+* Backward compatibility with earlier local config files is not preserved on this branch.
 
 ## V0.9.0
 
