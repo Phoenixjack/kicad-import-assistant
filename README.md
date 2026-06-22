@@ -8,6 +8,24 @@ The tool is designed around a cautious workflow: preview first, confirm explicit
 
 **V0.9.0**
 
+## V0.10 refactor branch note
+
+The refactor-debug-cleanup branch is currently being reworked as a breaking V0.10 refactor.
+
+This branch introduces an early staged workflow built around a shared run_state dictionary. The goal is to make the main script act as a short orchestration layer while helper functions handle specific stages such as config loading, user input validation, library/profile resolution, source discovery, naming, import planning, and execution.
+
+Current early-stage behavior:
+
+Initializes Tkinter file/folder dialogs.
+Loads runtime config and naming schema.
+Collects and validates the selected vendor ZIP file and target library folder.
+Resolves .pretty folder selections back to the custom library root.
+Infers a target profile from the selected .pretty folder when possible.
+Prompts for/accepts the target library profile.
+Stops after early-stage validation and target resolution.
+
+This branch is not currently intended as the stable import workflow. Use the latest tagged release or main branch for stable behavior.
+
 ## What It Does
 
 KiCad Import Assistant can currently:

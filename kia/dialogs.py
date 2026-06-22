@@ -28,7 +28,7 @@ def select_import_source(config: dict) -> Path:
     Open ZIP file picker using the last ZIP folder if possible.
     """
     initial_dir = get_existing_initial_dir(
-        config.get("last_zip_folder", ""),
+        config.get("last", {}).get("zip_folder", ""),
         Path.home() / "Downloads",
     )
 
@@ -53,7 +53,7 @@ def select_library_folder(config: dict) -> Path:
     Open folder picker using the last library root if possible.
     """
     initial_dir = get_existing_initial_dir(
-        config.get("last_library_root", ""),
+        config.get("last", {}).get("library_root", ""),
         Path.home(),
     )
 

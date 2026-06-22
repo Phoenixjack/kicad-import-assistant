@@ -1,15 +1,44 @@
 # Version History
 
+## VERSION_HISTORY.md update
+
 ## Unreleased - V0.10 Refactor Branch
 
-Breaking refactor work in progress:
+Breaking refactor work in progress on the `refactor-debug-cleanup` branch.
 
-* Introduces `run_state` as the central per-import workflow state.
-* Adds status-driven stage reporting through `run_state["status"]`.
-* Replaces flat `last_*` config keys with nested `config["last"]`.
-* Replaces manifest terminology with import plan terminology.
-* Refactors library/profile selection around selected `.pretty` folders and configured library profiles.
-* Backward compatibility with earlier local config files is not preserved on this branch.
+Completed in this checkpoint:
+
+* Adds `kia/run_state.py`.
+* Adds `initialize_run_state()` as the central per-import workflow state initializer.
+* Adds `kia/workflow_status.py`.
+* Adds status helper functions:
+
+  * `mark_success()`
+  * `mark_failure()`
+  * `stop_if_failed()`
+  * `critical_error()`
+* Updates `kicad_import_assistant.py` so `main()` uses a short staged workflow.
+* Adds early-stage runtime config loading through `load_runtime_config()`.
+* Adds early-stage user input collection and validation through `collect_and_validate_user_input()`.
+* Adds early-stage target library/profile resolution through `resolve_target_library()`.
+* Updates dialog startup behavior to use the nested `config["last"]` structure.
+* Updates library folder selection so the picker uses `config["last"]["library_root"]`.
+* Confirms selecting a `.pretty` folder resolves the custom library root from its parent folder.
+* Confirms selecting `_testIC.pretty` can infer the `IC` target profile.
+* Renames workflow status helper parameters from `import_result` to `run_state`.
+* Updates stale comments referring to old `config["last_*"]` keys.
+
+Current intentional limitation:
+
+* The staged workflow currently stops after early validation and target library resolution.
+* Source extraction, file discovery, naming, import planning, and actual import execution are not yet restored into the new staged pipeline.
+
+Breaking changes:
+
+* This branch no longer preserves backward compatibility with the older flat `last_*` config keys.
+* The config structure is moving toward a nested `config["last"]` object.
+* `run_state` is now the intended runtime data structure for workflow state and staged status reporting.
+
 
 ## V0.9.0
 
