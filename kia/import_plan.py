@@ -99,7 +99,7 @@ def create_preview_manifest(
             "source_file": str(selected_footprint.relative_to(extract_root)),
             "target_file": str(target_footprint_dir / f"{basename}.kicad_mod"),
             "action": "COPY_RENAME_PENDING",
-            "notes": "V0.7.0: copied footprint internal name, Value property, 3D model path, and metadata will be updated after IMPORT",
+            "notes": "Footprint will be copied/renamed; internal name, Value property, 3D model path, and metadata will be updated during import execution.",
         })
 
     if selected_model:
@@ -108,7 +108,7 @@ def create_preview_manifest(
             "source_file": str(selected_model.relative_to(extract_root)),
             "target_file": str(target_footprint_dir / f"{basename}.step"),
             "action": "COPY_RENAME_PENDING",
-            "notes": "V0.7.0: model will be copied/renamed and referenced by the copied footprint",
+            "notes": "Model will be copied/renamed and referenced by the copied footprint when a footprint is imported.",
         })
 
     if selected_symbol:
@@ -117,7 +117,7 @@ def create_preview_manifest(
             "source_file": str(selected_symbol.relative_to(extract_root)),
             "target_file": str(target_symbol_file),
             "action": "MERGE_PENDING",
-            "notes": f"Future step: merge symbol and update Footprint property to {library_settings.get('nickname')}:{basename}",
+            "notes": f"Symbol will be merged into the target library and its Footprint property will be updated to {library_settings.get('nickname')}:{basename}.",
         })
 
     manifest_path = extract_root / "kicad_import_preview_manifest.csv"

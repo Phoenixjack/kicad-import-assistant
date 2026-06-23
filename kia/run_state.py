@@ -109,6 +109,14 @@ def initialize_run_state() -> dict:
             "temp_folder_path": None,
             "basename": None,
 
+            "selected_files": {
+                "footprint": None,
+                "symbol": None,
+                "model": None,
+            },
+
+            "manifest_path": None,
+
             "symbol": {
                 "source_path": None,
                 "target_path": None,
