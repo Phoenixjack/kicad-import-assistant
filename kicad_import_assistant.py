@@ -21,6 +21,7 @@ documented in README.md, FEATURES.md, and VERSION_HISTORY.md.
 APP_VERSION = "0.10.0"
 
 from datetime import datetime
+import shutil
 import tkinter as tk
 from pathlib import Path
 from kia.debug import (
@@ -127,9 +128,15 @@ def main() -> None:
     run_state = review_import_plan(run_state)
     stop_if_failed(run_state)
 
+    run_state = confirm_file_copy_execution(run_state)
+    stop_if_failed(run_state)
+
+    run_state = copy_planned_footprint_and_model_files(run_state)
+    stop_if_failed(run_state)
+
     print()
-    print("Import plan complete.")
-    print("Next step: import execution.")
+    print("File copy complete.")
+    print("Next step: footprint content updates.")
     # END MAIN()
 
 
@@ -976,6 +983,204 @@ def review_import_plan(run_state: dict) -> dict:
         step="review_import_plan",
         function_name="review_import_plan",
         message="Import plan reviewed.",
+    )
+
+
+def confirm_file_copy_execution(run_state: dict) -> dict:
+    """
+    Owns:
+    - run_state["status"]
+    - run_state["file_copy"]["user_confirmed"]
+    - run_state["user_confirmed_import"]
+
+    Requires a hard confirmation before copying files into the target library.
+    This checkpoint only copies/renames footprint and model files.
+    It does not edit footprint contents and does not merge symbols.
+    """
+    if not run_state["import_plan"]["is_complete"]:
+        return mark_failure(
+            run_state,
+            script="kicad_import_assistant.py",
+            step="confirm_file_copy_execution",
+            function_name="confirm_file_copy_execution",
+            failure_reason="Cannot confirm file copy because the import plan is not complete.",
+            severity=Severity.ERROR,
+        )
+
+    print()
+    print("FILE COPY CONFIRMATION REQUIRED")
+    print("This will copy/rename selected footprint and model files into the target library folder.")
+    print("It will NOT edit the copied footprint contents yet.")
+    print("It will NOT merge symbols yet.")
+    print()
+
+    confirmation = input("Type COPY to continue, or anything else to stop: ").strip()
+
+    if confirmation != "COPY":
+        return mark_failure(
+            run_state,
+            script="kicad_import_assistant.py",
+            step="confirm_file_copy_execution",
+            function_name="confirm_file_copy_execution",
+            failure_reason="File copy canceled by user before target-library writes.",
+            severity=Severity.INFO,
+        )
+
+    run_state["file_copy"]["user_confirmed"] = True
+    run_state["user_confirmed_import"] = True
+
+    return mark_success(
+        run_state,
+        script="kicad_import_assistant.py",
+        step="confirm_file_copy_execution",
+        function_name="confirm_file_copy_execution",
+        message="File copy confirmed.",
+    )
+
+
+def copy_planned_footprint_and_model_files(run_state: dict) -> dict:
+    """
+    Owns:
+    - run_state["status"]
+    - run_state["file_copy"]
+    - run_state["copied_files"]
+    - run_state["files_copied"]
+    - run_state["footprint"]["copied"]
+    - run_state["model"]["copied"]
+
+    Copies selected footprint and model files to their planned target paths.
+    This does not edit footprint contents and does not merge symbols.
+    """
+    if not run_state["file_copy"]["user_confirmed"]:
+        return mark_failure(
+            run_state,
+            script="kicad_import_assistant.py",
+            step="copy_planned_files",
+            function_name="copy_planned_footprint_and_model_files",
+            failure_reason="Cannot copy files because file copy was not confirmed.",
+            severity=Severity.ERROR,
+        )
+
+    if not run_state["import_plan"]["is_complete"]:
+        return mark_failure(
+            run_state,
+            script="kicad_import_assistant.py",
+            step="copy_planned_files",
+            function_name="copy_planned_footprint_and_model_files",
+            failure_reason="Cannot copy files because the import plan is not complete.",
+            severity=Severity.ERROR,
+        )
+
+    copied_files = []
+    run_state["file_copy"]["attempted"] = True
+
+    for file_type in ["footprint", "model"]:
+        plan_item = run_state["import_plan"][file_type]
+
+        source_path = plan_item.get("source_path")
+        target_path = plan_item.get("target_path")
+
+        if source_path is None:
+            continue
+
+        if target_path is None:
+            return mark_failure(
+                run_state,
+                script="kicad_import_assistant.py",
+                step="copy_planned_files",
+                function_name="copy_planned_footprint_and_model_files",
+                failure_reason=f"Cannot copy {file_type}; target path is missing.",
+                severity=Severity.ERROR,
+            )
+
+        source_path = Path(source_path)
+        target_path = Path(target_path)
+
+        if not source_path.exists() or not source_path.is_file():
+            return mark_failure(
+                run_state,
+                script="kicad_import_assistant.py",
+                step="copy_planned_files",
+                function_name="copy_planned_footprint_and_model_files",
+                failure_reason=f"Cannot copy {file_type}; source file is invalid:\n{source_path}",
+                severity=Severity.ERROR,
+            )
+
+        if not target_path.parent.exists() or not target_path.parent.is_dir():
+            return mark_failure(
+                run_state,
+                script="kicad_import_assistant.py",
+                step="copy_planned_files",
+                function_name="copy_planned_footprint_and_model_files",
+                failure_reason=f"Cannot copy {file_type}; target folder is invalid:\n{target_path.parent}",
+                severity=Severity.ERROR,
+            )
+
+        if target_path.exists():
+            return mark_failure(
+                run_state,
+                script="kicad_import_assistant.py",
+                step="copy_planned_files",
+                function_name="copy_planned_footprint_and_model_files",
+                failure_reason=(
+                    f"Cannot copy {file_type}; target file already exists.\n"
+                    f"Overwrite protection is enabled:\n{target_path}"
+                ),
+                severity=Severity.ERROR,
+            )
+
+        try:
+            shutil.copy2(source_path, target_path)
+
+        except Exception as error:
+            return mark_failure(
+                run_state,
+                script="kicad_import_assistant.py",
+                step="copy_planned_files",
+                function_name="copy_planned_footprint_and_model_files",
+                failure_reason=f"Failed to copy {file_type}.\n{error}",
+                severity=Severity.ERROR,
+            )
+
+        copied_row = {
+            "type": file_type,
+            "source": source_path,
+            "target": target_path,
+        }
+
+        copied_files.append(copied_row)
+
+        run_state[file_type]["copied"] = True
+        run_state["import_plan"][file_type]["action"] = "COPIED_UNEDITED"
+
+    run_state["file_copy"]["copied_files"] = copied_files
+    run_state["file_copy"]["complete"] = True
+
+    run_state["copied_files"] = copied_files
+    run_state["files_copied"] = len(copied_files) > 0
+
+    print()
+    print("Copied files:")
+
+    if not copied_files:
+        print("  No footprint/model files were selected for copy.")
+    else:
+        for copied_file in copied_files:
+            print(f"  {copied_file['type']}:")
+            print(f"    Source: {copied_file['source']}")
+            print(f"    Target: {copied_file['target']}")
+
+    if run_state["import_plan"]["symbol"]["source_path"] is not None:
+        print()
+        print("Symbol merge skipped for this checkpoint.")
+        print(f"  Pending target: {run_state['import_plan']['symbol']['target_path']}")
+
+    return mark_success(
+        run_state,
+        script="kicad_import_assistant.py",
+        step="copy_planned_files",
+        function_name="copy_planned_footprint_and_model_files",
+        message="Planned footprint/model files copied.",
     )
 
 

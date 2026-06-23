@@ -103,6 +103,15 @@ def initialize_run_state() -> dict:
             "user_continued": False,
         },
 
+        # First write stage: copy/rename selected footprint and model files.
+        # This does not edit copied footprint contents and does not merge symbols.
+        "file_copy": {
+            "user_confirmed": False,
+            "attempted": False,
+            "complete": False,
+            "copied_files": [],
+        },
+
         # Planned import actions before anything is written.
         # This replaces the old "manifest" concept.
         "import_plan": {
