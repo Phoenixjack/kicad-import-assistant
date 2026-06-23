@@ -109,9 +109,13 @@ def main() -> None:
     run_state = discover_source_files(run_state)
     stop_if_failed(run_state)
 
+    run_state = build_import_basename(run_state)
+    stop_if_failed(run_state)
+
     print()
-    print("Source discovery complete.")
-    print("Next step: naming / import plan.")
+    print("Naming complete.")
+    print(f"Basename: {run_state['import_plan']['basename']}")
+    print("Next step: import plan creation.")
     # END MAIN()
 
 
@@ -444,7 +448,106 @@ def discover_source_files(run_state: dict) -> dict:
         message="Source files discovered.",
     )
 
-    
+
+def build_import_basename(run_state: dict) -> dict:
+    """
+    Owns:
+    - run_state["status"]
+    - run_state["import_plan"]["basename"]
+    - run_state["recent_values"]
+
+    Builds the target basename using the existing naming prompt workflow.
+    """
+    config = run_state["config"]["general_config"]
+    naming_schema = run_state["config"]["naming_schema"]
+    library_settings = run_state["profile"]["settings"]
+    found_files = run_state["source_files"]["found_files"]
+
+    if not found_files:
+        return mark_failure(
+            run_state,
+            script="kicad_import_assistant.py",
+            step="build_import_basename",
+            function_name="build_import_basename",
+            failure_reason="Cannot build basename because no source files were discovered.",
+            severity=Severity.ERROR,
+        )
+
+    if not library_settings:
+        return mark_failure(
+            run_state,
+            script="kicad_import_assistant.py",
+            step="build_import_basename",
+            function_name="build_import_basename",
+            failure_reason="Cannot build basename because no library profile settings are available.",
+            severity=Severity.ERROR,
+        )
+
+    try:
+        suggested_defaults = suggest_defaults_from_files(found_files)
+
+        basename = build_basename_from_prompts(
+            config=config,
+            library_settings=library_settings,
+            found_files=found_files,
+            suggested_defaults=suggested_defaults,
+            naming_schema=naming_schema,
+        )
+
+    except SystemExit as error:
+        return mark_failure(
+            run_state,
+            script="kicad_import_assistant.py",
+            step="build_import_basename",
+            function_name="build_import_basename",
+            failure_reason=f"Basename creation was canceled or failed validation.\n{error}",
+            severity=Severity.ERROR,
+        )
+
+    except Exception as error:
+        return mark_failure(
+            run_state,
+            script="kicad_import_assistant.py",
+            step="build_import_basename",
+            function_name="build_import_basename",
+            failure_reason=f"Unexpected error while building basename.\n{error}",
+            severity=Severity.ERROR,
+        )
+
+    if not basename:
+        return mark_failure(
+            run_state,
+            script="kicad_import_assistant.py",
+            step="build_import_basename",
+            function_name="build_import_basename",
+            failure_reason="Basename creation returned an empty value.",
+            severity=Severity.ERROR,
+        )
+
+    run_state["import_plan"]["basename"] = basename
+
+    # Current naming.py still writes recent values into config.
+    # Capture them into run_state so final config save can later use run_state.
+    run_state["recent_values"] = dict(config.get("recent_values", {}))
+
+    dbg_blank(Severity.VERBOSE, "basename", stage="build", source="main")
+    dbg_print(
+        f"Generated target basename: {basename}",
+        Severity.VERBOSE,
+        "basename",
+        stage="build",
+        source="main",
+    )
+
+    return mark_success(
+        run_state,
+        script="kicad_import_assistant.py",
+        step="build_import_basename",
+        function_name="build_import_basename",
+        message="Import basename built.",
+    )
+
+
 if __name__ == "__main__":
     main()
 

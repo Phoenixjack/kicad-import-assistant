@@ -6,12 +6,35 @@ from kia.debug import debug_print
 def prompt_with_default(label: str, default: str = "") -> str:
     """
     Prompt the user for a value, allowing Enter to accept a default.
+
+    Special blanking inputs:
+    - "-"
+    - "NONE"
+    - "BLANK"
+
+    These intentionally clear an optional field instead of accepting the default.
+    Required-field validation later decides whether blank is allowed.
     """
     if default:
-        user_input = input(f"{label} [{default}]: ").strip()
-        return user_input if user_input else default
+        user_input = input(f"{label} [{default}]: ")
 
-    return input(f"{label}: ").strip()
+        if user_input == "":
+            return default
+
+        cleaned_input = user_input.strip()
+
+        if cleaned_input.upper() in ["-", "NONE", "BLANK"]:
+            return ""
+
+        return cleaned_input
+
+    user_input = input(f"{label}: ")
+    cleaned_input = user_input.strip()
+
+    if cleaned_input.upper() in ["-", "NONE", "BLANK"]:
+        return ""
+
+    return cleaned_input
 
 
 def clean_name_token(value: str) -> str:
@@ -192,6 +215,44 @@ def get_family_options_for_library(
     return families
 
 
+def get_token_options_for_library(
+    naming_schema: dict,
+    library_prefix: str,
+    token_set_name: str,
+) -> dict:
+    """
+    Get token options for the selected library/category.
+
+    Priority:
+    1. Library-specific token set:
+       naming_schema["libraries"][library_prefix]["token_sets"][token_set_name]
+
+    2. Direct library-specific section:
+       naming_schema["libraries"][library_prefix][token_set_name]
+
+    3. Global token set:
+       naming_schema["token_sets"][token_set_name]
+    """
+    libraries = naming_schema.get("libraries", {})
+    library_data = libraries.get(library_prefix, {})
+
+    if isinstance(library_data, dict):
+        library_token_sets = library_data.get("token_sets", {})
+
+        if isinstance(library_token_sets, dict):
+            library_options = library_token_sets.get(token_set_name, {})
+
+            if isinstance(library_options, dict) and library_options:
+                return library_options
+
+        direct_library_options = library_data.get(token_set_name, {})
+
+        if isinstance(direct_library_options, dict) and direct_library_options:
+            return direct_library_options
+
+    return get_schema_options(naming_schema, token_set_name)
+
+
 def prompt_from_options(
     label: str,
     options: dict,
@@ -311,10 +372,29 @@ def build_basename_from_prompts(config: dict, library_settings: dict, found_file
         allow_free_text=True,
     )
 
-    role_options = get_schema_options(naming_schema, "roles")
-    mount_options = get_schema_options(naming_schema, "mounts")
-    orientation_options = get_schema_options(naming_schema, "orientations")
-    pitch_options = get_schema_options(naming_schema, "common_pitches")
+    role_options = get_token_options_for_library(
+        naming_schema=naming_schema,
+        library_prefix=prefix,
+        token_set_name="roles",
+    )
+
+    mount_options = get_token_options_for_library(
+        naming_schema=naming_schema,
+        library_prefix=prefix,
+        token_set_name="mounts",
+    )
+
+    orientation_options = get_token_options_for_library(
+        naming_schema=naming_schema,
+        library_prefix=prefix,
+        token_set_name="orientations",
+    )
+
+    pitch_options = get_token_options_for_library(
+        naming_schema=naming_schema,
+        library_prefix=prefix,
+        token_set_name="common_pitches",
+    )
 
     role = prompt_from_options(
         label="Role",
@@ -337,7 +417,7 @@ def build_basename_from_prompts(config: dict, library_settings: dict, found_file
         allow_free_text=True,
     )
 
-    size = prompt_with_default("Size", suggested["size"])
+    size = prompt_with_default("Pin count", suggested["size"])
 
     pitch = normalize_pitch_token(
         prompt_from_options(
@@ -357,7 +437,7 @@ def build_basename_from_prompts(config: dict, library_settings: dict, found_file
         "Role": role,
         "Mount": mount,
         "Orientation": orient,
-        "Size": size,
+        "Pin count": size,
         "MPN": mpn,
     }
 

@@ -63,7 +63,27 @@
         "LOGIC": "Logic IC",
         "MEM": "Memory",
         "MUX": "Multiplexer / demultiplexer",
-        "COMMS": "Communication interface IC"
+        "COMMS": "Communication interface IC",
+        "SENSOR": "Sensor IC",
+        "POWER": "Power-management IC"
+      },
+      "token_sets": {
+        "roles": {
+          "SENSOR": "Sensor / sensing IC",
+          "MON": "Monitor / measurement IC",
+          "IF": "Interface IC",
+          "REG": "Regulator / power IC",
+          "DRV": "Driver IC",
+          "ADC": "Analog-to-digital converter",
+          "DAC": "Digital-to-analog converter",
+          "AMP": "Amplifier",
+          "LOGIC": "Logic IC",
+          "MCU": "Microcontroller",
+          "MEM": "Memory"
+        },
+        "orientations": {
+          "NA": "Not applicable"
+        }
       }
     },
     "GATE": {
@@ -169,11 +189,24 @@
       "preferred_output_unit": "mm",
       "output_prefix": "P",
       "default_metric_decimal_places": 2,
-      "allowed_metric_decimal_places": [2, 3],
-      "allowed_inch_decimal_places": [3],
-      "accepted_metric_suffixes": ["mm"],
-      "accepted_inch_suffixes": ["in", "inch"],
-      "accepted_mil_suffixes": ["mil", "mils"]
+      "allowed_metric_decimal_places": [
+        2,
+        3
+      ],
+      "allowed_inch_decimal_places": [
+        3
+      ],
+      "accepted_metric_suffixes": [
+        "mm"
+      ],
+      "accepted_inch_suffixes": [
+        "in",
+        "inch"
+      ],
+      "accepted_mil_suffixes": [
+        "mil",
+        "mils"
+      ]
     }
   },
   "validation": {
@@ -181,7 +214,12 @@
       "metric_regex": "^P\\d+\\.\\d{2,3}$",
       "inch_input_regex": "^\\d+\\.\\d{3}(in|inch)$",
       "mil_input_regex": "^\\d+(\\.\\d+)?mils?$",
-      "examples": ["P0.50", "P1.25", "P2.54", "P0.635"]
+      "examples": [
+        "P0.50",
+        "P1.25",
+        "P2.54",
+        "P0.635"
+      ]
     },
     "size": {
       "allowed_regex": [
@@ -189,10 +227,28 @@
         "^\\d+P$",
         "^8P8C$"
       ],
-      "examples": ["1x06", "2x20", "24P", "8P8C"]
+      "examples": [
+        "8",
+		"14",
+		"24",
+		"1x06",
+        "2x20",
+        "24P",
+        "8P8C"
+      ]
     },
     "mpn": {
-      "disallowed_characters": ["\\", "/", ":", "*", "?", "\"", "<", ">", "|"],
+      "disallowed_characters": [
+        "\\",
+        "/",
+        ":",
+        "*",
+        "?",
+        "\"",
+        "<",
+        ">",
+        "|"
+      ],
       "space_replacement": "-"
     }
   }
