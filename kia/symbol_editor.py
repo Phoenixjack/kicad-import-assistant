@@ -81,11 +81,49 @@ def update_symbol_footprint_property(
     return updated_text, replacement_count == 1
 
 
+def add_symbol_import_metadata_properties(
+    symbol_text: str,
+    importer_version: str,
+) -> tuple[str, bool]:
+    """
+    Add hidden import metadata properties to the first symbol in a preview file.
+
+    This modifies only the preview symbol text. It does not modify the target
+    symbol library.
+    """
+    metadata_lines = [
+        (
+            f'    (property "ImportedBy" "kicad-import-assistant {importer_version}" '
+            f'(at 0 0 0) (effects (font (size 1.27 1.27)) hide))'
+        ),
+        (
+            f'    (property "ImportStatus" "NEEDS_REVIEW" '
+            f'(at 0 0 0) (effects (font (size 1.27 1.27)) hide))'
+        ),
+        (
+            f'    (property "NeedsFootprintValidation" "YES" '
+            f'(at 0 0 0) (effects (font (size 1.27 1.27)) hide))'
+        ),
+    ]
+
+    metadata_text = "\n".join(metadata_lines)
+
+    updated_text, replacement_count = re.subn(
+        pattern=r'(?m)^(\s*\(symbol\s+"[^"]+"\s*)$',
+        repl=rf'\1\n{metadata_text}',
+        string=symbol_text,
+        count=1,
+    )
+
+    return updated_text, replacement_count == 1
+
+
 def create_symbol_preview_file(
     selected_files: dict,
     library_settings: dict,
     basename: str,
     extract_root: Path,
+    importer_version: str = "",
 ) -> dict:
     """
     Create an edited preview copy of the source symbol file.
@@ -101,6 +139,7 @@ def create_symbol_preview_file(
         "footprint_property": "",
         "symbol_name_updated": False,
         "footprint_property_updated": False,
+        "metadata_added": False,
     }
 
     source_symbol_path = selected_files.get("symbol")
@@ -136,6 +175,11 @@ def create_symbol_preview_file(
         footprint_value=footprint_property,
     )
 
+    updated_text, metadata_added = add_symbol_import_metadata_properties(
+        symbol_text=updated_text,
+        importer_version=importer_version,
+    )
+
     preview_symbol_path = extract_root / f"{basename}.symbol_preview.kicad_sym"
     preview_symbol_path.write_text(updated_text, encoding="utf-8")
 
@@ -144,6 +188,7 @@ def create_symbol_preview_file(
     result["old_symbol_name"] = old_symbol_name
     result["symbol_name_updated"] = name_updated
     result["footprint_property_updated"] = footprint_updated
+    result["metadata_added"] = metadata_added
 
     debug_print("symbols", "")
     debug_print("symbols", "Created symbol preview file:")
@@ -154,6 +199,7 @@ def create_symbol_preview_file(
     debug_print("symbols", f"  Footprint property: {footprint_property}")
     debug_print("symbols", f"  Symbol name updated: {name_updated}")
     debug_print("symbols", f"  Footprint property updated: {footprint_updated}")
+    debug_print("symbols", f"  Metadata added: {metadata_added}")
 
     return result
 

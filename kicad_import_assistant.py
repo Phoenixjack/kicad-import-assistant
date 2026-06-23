@@ -51,7 +51,6 @@ from kia.library_resolution import (
     resolve_library_root_from_selection,
     infer_profile_from_selected_folder,
 )
-
 from kia.symbol_resolver import resolve_target_symbol_file
 from kia.source_scan import (
     extract_zip_to_temp,
@@ -142,9 +141,12 @@ def main() -> None:
     run_state = update_copied_footprint_contents(run_state)
     stop_if_failed(run_state)
 
+    run_state = create_symbol_preview_stage(run_state)
+    stop_if_failed(run_state)
+
     print()
-    print("Footprint content update complete.")
-    print("Next step: symbol preview / merge.")
+    print("Symbol preview complete.")
+    print("Next step: symbol merge.")
     # END MAIN()
 
 
@@ -1385,6 +1387,195 @@ def update_copied_footprint_contents(run_state: dict) -> dict:
         step="update_copied_footprint_contents",
         function_name="update_copied_footprint_contents",
         message="Copied footprint contents updated.",
+    )
+
+
+def create_symbol_preview_stage(run_state: dict) -> dict:
+    """
+    Owns:
+    - run_state["status"]
+    - run_state["symbol_preview"]
+    - run_state["symbol"]["preview_created"]
+    - run_state["symbol"]["name_updated"]
+    - run_state["symbol"]["footprint_property_updated"]
+    - run_state["symbol"]["metadata_added"]
+
+    Creates an edited preview symbol file in the temp import folder.
+
+    This stage:
+    - renames the preview symbol to the generated basename
+    - updates the preview symbol Footprint property
+    - adds preview symbol metadata
+    - checks whether the target symbol library is ready for a future merge
+
+    This stage does not modify the target symbol library.
+    """
+    selected_files = run_state["import_plan"]["selected_files"]
+    library_settings = run_state["profile"]["settings"]
+    basename = run_state["import_plan"]["basename"]
+    extract_root = run_state["import_plan"]["temp_folder_path"]
+    target_symbol_file = run_state["current"]["target_symbol_file"]
+
+    source_symbol = run_state["import_plan"]["symbol"].get("source_path")
+
+    if source_symbol is None:
+        print()
+        print("Symbol preview skipped.")
+        print("  No symbol was selected for import.")
+
+        run_state["symbol_preview"]["complete"] = True
+
+        return mark_success(
+            run_state,
+            script="kicad_import_assistant.py",
+            step="create_symbol_preview",
+            function_name="create_symbol_preview_stage",
+            message="No symbol preview required.",
+        )
+
+    if not basename:
+        return mark_failure(
+            run_state,
+            script="kicad_import_assistant.py",
+            step="create_symbol_preview",
+            function_name="create_symbol_preview_stage",
+            failure_reason="Cannot create symbol preview because basename is missing.",
+            severity=Severity.ERROR,
+        )
+
+    if extract_root is None:
+        return mark_failure(
+            run_state,
+            script="kicad_import_assistant.py",
+            step="create_symbol_preview",
+            function_name="create_symbol_preview_stage",
+            failure_reason="Cannot create symbol preview because temp folder is missing.",
+            severity=Severity.ERROR,
+        )
+
+    if not library_settings:
+        return mark_failure(
+            run_state,
+            script="kicad_import_assistant.py",
+            step="create_symbol_preview",
+            function_name="create_symbol_preview_stage",
+            failure_reason="Cannot create symbol preview because library settings are missing.",
+            severity=Severity.ERROR,
+        )
+
+    run_state["symbol_preview"]["attempted"] = True
+
+    try:
+        preview_result = create_symbol_preview_file(
+            selected_files=selected_files,
+            library_settings=library_settings,
+            basename=basename,
+            extract_root=extract_root,
+            importer_version=f"V{APP_VERSION}",
+        )
+
+    except Exception as error:
+        return mark_failure(
+            run_state,
+            script="kicad_import_assistant.py",
+            step="create_symbol_preview",
+            function_name="create_symbol_preview_stage",
+            failure_reason=f"Unexpected error while creating symbol preview.\n{error}",
+            severity=Severity.ERROR,
+        )
+
+    if not preview_result.get("symbol_preview_created"):
+        return mark_failure(
+            run_state,
+            script="kicad_import_assistant.py",
+            step="create_symbol_preview",
+            function_name="create_symbol_preview_stage",
+            failure_reason="Symbol preview file was not created.",
+            severity=Severity.ERROR,
+        )
+
+    merge_precheck = check_symbol_merge_preconditions(
+        target_symbol_file=target_symbol_file,
+        new_symbol_name=basename,
+    )
+
+    run_state["symbol_preview"]["source_symbol"] = preview_result.get("source_symbol")
+    run_state["symbol_preview"]["preview_symbol"] = preview_result.get("preview_symbol")
+    run_state["symbol_preview"]["old_symbol_name"] = preview_result.get("old_symbol_name")
+    run_state["symbol_preview"]["new_symbol_name"] = preview_result.get("new_symbol_name")
+    run_state["symbol_preview"]["footprint_property"] = preview_result.get("footprint_property")
+    run_state["symbol_preview"]["symbol_name_updated"] = preview_result.get("symbol_name_updated")
+    run_state["symbol_preview"]["footprint_property_updated"] = preview_result.get("footprint_property_updated")
+    run_state["symbol_preview"]["metadata_added"] = preview_result.get("metadata_added")
+    run_state["symbol_preview"]["merge_precheck"] = merge_precheck
+
+    run_state["symbol"]["preview_created"] = preview_result.get("symbol_preview_created")
+    run_state["symbol"]["name_updated"] = preview_result.get("symbol_name_updated")
+    run_state["symbol"]["footprint_property_updated"] = preview_result.get("footprint_property_updated")
+    run_state["symbol"]["metadata_added"] = preview_result.get("metadata_added")
+
+    update_errors = []
+
+    if not preview_result.get("symbol_name_updated"):
+        update_errors.append("Preview symbol name was not updated.")
+
+    if not preview_result.get("footprint_property_updated"):
+        update_errors.append("Preview symbol Footprint property was not updated.")
+
+    if not preview_result.get("metadata_added"):
+        update_errors.append("Preview symbol metadata was not added.")
+
+    if not merge_precheck.get("symbol_merge_precheck_passed"):
+        update_errors.append(
+            "Symbol merge precheck failed: "
+            + merge_precheck.get("reason", "Unknown reason.")
+        )
+
+    if update_errors:
+        failure_reason = (
+            "Symbol preview did not complete cleanly.\n"
+            + "\n".join(f"- {error}" for error in update_errors)
+        )
+
+        return mark_failure(
+            run_state,
+            script="kicad_import_assistant.py",
+            step="create_symbol_preview",
+            function_name="create_symbol_preview_stage",
+            failure_reason=failure_reason,
+            severity=Severity.ERROR,
+        )
+
+    run_state["symbol_preview"]["complete"] = True
+    run_state["import_plan"]["symbol"]["action"] = "PREVIEW_READY"
+
+    print()
+    print("Symbol preview:")
+    print(f"  Source: {preview_result.get('source_symbol')}")
+    print(f"  Preview: {preview_result.get('preview_symbol')}")
+    print(f"  Old symbol name: {preview_result.get('old_symbol_name')}")
+    print(f"  New symbol name: {preview_result.get('new_symbol_name')}")
+    print(f"  Footprint property: {preview_result.get('footprint_property')}")
+    print(f"  Symbol name updated: {preview_result.get('symbol_name_updated')}")
+    print(f"  Footprint property updated: {preview_result.get('footprint_property_updated')}")
+    print(f"  Metadata added: {preview_result.get('metadata_added')}")
+
+    print()
+    print("Symbol merge precheck:")
+    print(f"  Target symbol file exists: {merge_precheck.get('target_symbol_file_exists')}")
+    print(f"  Target symbol already exists: {merge_precheck.get('target_symbol_already_exists')}")
+    print(f"  Merge precheck passed: {merge_precheck.get('symbol_merge_precheck_passed')}")
+    print(f"  Reason: {merge_precheck.get('reason')}")
+
+    print()
+    print("Target symbol library was not modified.")
+
+    return mark_success(
+        run_state,
+        script="kicad_import_assistant.py",
+        step="create_symbol_preview",
+        function_name="create_symbol_preview_stage",
+        message="Symbol preview created.",
     )
 
 

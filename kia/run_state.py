@@ -112,6 +112,23 @@ def initialize_run_state() -> dict:
             "copied_files": [],
         },
 
+        # Third write stage: create edited symbol preview only.
+        # This writes a preview file in the extracted temp folder.
+        # It does not modify the target symbol library.
+        "symbol_preview": {
+            "attempted": False,
+            "complete": False,
+            "source_symbol": None,
+            "preview_symbol": None,
+            "old_symbol_name": None,
+            "new_symbol_name": None,
+            "footprint_property": None,
+            "symbol_name_updated": False,
+            "footprint_property_updated": False,
+            "metadata_added": False,
+            "merge_precheck": None,
+        },
+
         # Second write stage: edit copied footprint contents.
         # This only modifies the copied .kicad_mod file.
         "footprint_update": {
