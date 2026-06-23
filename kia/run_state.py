@@ -129,6 +129,21 @@ def initialize_run_state() -> dict:
             "merge_precheck": None,
         },
 
+        # Fourth write stage: merge edited symbol preview into target library.
+        # This modifies the target .kicad_sym file only after confirmation,
+        # precheck, and backup.
+        "symbol_merge": {
+            "user_confirmed": False,
+            "attempted": False,
+            "complete": False,
+            "target_symbol_file": None,
+            "preview_symbol_file": None,
+            "backup_path": None,
+            "merged_symbol_name": None,
+            "merge_result": None,
+            "precheck": None,
+        },
+
         # Second write stage: edit copied footprint contents.
         # This only modifies the copied .kicad_mod file.
         "footprint_update": {

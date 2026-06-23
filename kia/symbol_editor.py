@@ -86,36 +86,93 @@ def add_symbol_import_metadata_properties(
     importer_version: str,
 ) -> tuple[str, bool]:
     """
-    Add hidden import metadata properties to the first symbol in a preview file.
+    Add hidden import metadata properties to the parent symbol in a preview file.
 
-    This modifies only the preview symbol text. It does not modify the target
-    symbol library.
+    KiCad symbols can contain nested unit/drawing symbols like:
+
+        (symbol "PART"
+          (property ...)
+          (symbol "PART_0_0"
+            ...
+          )
+        )
+
+    Metadata properties must be added to the parent symbol, not to the nested
+    unit/drawing symbol.
     """
-    metadata_lines = [
-        (
-            f'    (property "ImportedBy" "kicad-import-assistant {importer_version}" '
-            f'(at 0 0 0) (effects (font (size 1.27 1.27)) hide))'
-        ),
-        (
-            f'    (property "ImportStatus" "NEEDS_REVIEW" '
-            f'(at 0 0 0) (effects (font (size 1.27 1.27)) hide))'
-        ),
-        (
-            f'    (property "NeedsFootprintValidation" "YES" '
-            f'(at 0 0 0) (effects (font (size 1.27 1.27)) hide))'
-        ),
+    lines = symbol_text.splitlines()
+
+    symbol_line_indexes = [
+        index
+        for index, line in enumerate(lines)
+        if line.lstrip().startswith('(symbol "')
     ]
 
-    metadata_text = "\n".join(metadata_lines)
+    if not symbol_line_indexes:
+        return symbol_text, False
 
-    updated_text, replacement_count = re.subn(
-        pattern=r'(?m)^(\s*\(symbol\s+"[^"]+"\s*)$',
-        repl=rf'\1\n{metadata_text}',
-        string=symbol_text,
-        count=1,
+    def indentation_width(line: str) -> int:
+        return len(line) - len(line.lstrip())
+
+    # The parent symbol is the least-indented symbol line.
+    parent_symbol_index = min(
+        symbol_line_indexes,
+        key=lambda index: indentation_width(lines[index]),
     )
 
-    return updated_text, replacement_count == 1
+    parent_indent_width = indentation_width(lines[parent_symbol_index])
+
+    # Insert metadata before the first nested symbol block, if one exists.
+    # This keeps metadata grouped with Reference/Value/Footprint properties.
+    insert_index = parent_symbol_index + 1
+
+    for index in range(parent_symbol_index + 1, len(lines)):
+        line = lines[index]
+        stripped_line = line.lstrip()
+
+        if (
+            stripped_line.startswith('(symbol "')
+            and indentation_width(line) > parent_indent_width
+        ):
+            insert_index = index
+            break
+
+    property_indent = " " * (parent_indent_width + 2)
+    effects_indent = " " * (parent_indent_width + 4)
+
+    metadata_lines = [
+        (
+            f'{property_indent}(property "ImportedBy" '
+            f'"kicad-import-assistant {importer_version}" '
+            f'(id 9000) (at 0 0 0)'
+        ),
+        f'{effects_indent}(effects (font (size 1.27 1.27)) hide)',
+        f'{property_indent})',
+        (
+            f'{property_indent}(property "ImportStatus" '
+            f'"NEEDS_REVIEW" '
+            f'(id 9001) (at 0 0 0)'
+        ),
+        f'{effects_indent}(effects (font (size 1.27 1.27)) hide)',
+        f'{property_indent})',
+        (
+            f'{property_indent}(property "NeedsFootprintValidation" '
+            f'"YES" '
+            f'(id 9002) (at 0 0 0)'
+        ),
+        f'{effects_indent}(effects (font (size 1.27 1.27)) hide)',
+        f'{property_indent})',
+    ]
+
+    updated_lines = (
+        lines[:insert_index]
+        + metadata_lines
+        + lines[insert_index:]
+    )
+
+    trailing_newline = "\n" if symbol_text.endswith("\n") else ""
+
+    return "\n".join(updated_lines) + trailing_newline, True
 
 
 def create_symbol_preview_file(
