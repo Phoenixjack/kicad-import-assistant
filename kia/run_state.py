@@ -112,6 +112,19 @@ def initialize_run_state() -> dict:
             "copied_files": [],
         },
 
+        # Second write stage: edit copied footprint contents.
+        # This only modifies the copied .kicad_mod file.
+        "footprint_update": {
+            "attempted": False,
+            "complete": False,
+            "target_footprint": None,
+            "internal_name_updated": False,
+            "value_updated": False,
+            "model_reference_updated": False,
+            "model_reference_added": False,
+            "metadata_added": False,
+        },
+
         # Planned import actions before anything is written.
         # This replaces the old "manifest" concept.
         "import_plan": {

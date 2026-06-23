@@ -112,17 +112,24 @@ def build_kicad_model_path(
     config: dict,
     library_settings: dict,
     basename: str,
+    model_filename: str | None = None,
 ) -> str:
     """
-    Build the KiCad 3D model path for the copied STEP model.
+    Build the KiCad 3D model path for the copied model.
 
     Example:
     ${CHRIS_KICAD_LIB}/CONNECTORS.pretty/CONN_EXAMPLE.step
+
+    If model_filename is provided, use the actual copied model filename.
+    This preserves source extensions such as .step, .stp, or .wrl.
     """
     path_variable = config.get("path_variable", "CHRIS_KICAD_LIB")
     footprint_dir_name = library_settings.get("footprint_dir", "")
 
-    return f"${{{path_variable}}}/{footprint_dir_name}/{basename}.step"
+    if not model_filename:
+        model_filename = f"{basename}.step"
+
+    return f"${{{path_variable}}}/{footprint_dir_name}/{model_filename}"
 
 
 def update_footprint_value_property(
@@ -454,7 +461,7 @@ def build_hidden_footprint_property_block(
         "\t\t(effects\n"
         "\t\t\t(font\n"
         "\t\t\t\t(size 1 1)\n"
-        "\t\t\t\t(thickness 0.1)\n"
+        "\t\t\t\t(thickness 0.08)\n"
         "\t\t\t)\n"
         "\t\t)\n"
         "\t)\n"
