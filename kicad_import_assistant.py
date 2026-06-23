@@ -112,6 +112,9 @@ def main() -> None:
     run_state = collect_part_identity(run_state)
     stop_if_failed(run_state)
 
+    run_state = check_for_existing_part(run_state)
+    stop_if_failed(run_state)
+
     run_state = build_import_basename(run_state)
     stop_if_failed(run_state)
 
@@ -527,6 +530,106 @@ def collect_part_identity(run_state: dict) -> dict:
         step="collect_part_identity",
         function_name="collect_part_identity",
         message="Part identity collected.",
+    )
+
+
+def check_for_existing_part(run_state: dict) -> dict:
+    """
+    Owns:
+    - run_state["status"]
+    - run_state["duplicate_check"]
+
+    Checks the selected target library for files matching the early MPN.
+    If possible duplicates are found, the user may stop before full naming.
+    """
+    library_root = run_state["current"]["library_root"]
+    library_settings = run_state["profile"]["settings"]
+    mpn = run_state["naming"].get("mpn", "")
+
+    if not mpn:
+        return mark_failure(
+            run_state,
+            script="kicad_import_assistant.py",
+            step="check_for_existing_part",
+            function_name="check_for_existing_part",
+            failure_reason="Cannot perform duplicate check because MPN is missing.",
+            severity=Severity.ERROR,
+        )
+
+    if library_root is None:
+        return mark_failure(
+            run_state,
+            script="kicad_import_assistant.py",
+            step="check_for_existing_part",
+            function_name="check_for_existing_part",
+            failure_reason="Cannot perform duplicate check because library_root is missing.",
+            severity=Severity.ERROR,
+        )
+
+    if not library_settings:
+        return mark_failure(
+            run_state,
+            script="kicad_import_assistant.py",
+            step="check_for_existing_part",
+            function_name="check_for_existing_part",
+            failure_reason="Cannot perform duplicate check because library profile settings are missing.",
+            severity=Severity.ERROR,
+        )
+
+    try:
+        existing_matches = find_existing_files_by_mpn(
+            library_root=library_root,
+            library_settings=library_settings,
+            mpn=mpn,
+        )
+
+        warn_about_existing_mpn_matches(existing_matches, mpn)
+
+        user_continued = confirm_continue_after_duplicate_warning(existing_matches)
+
+    except Exception as error:
+        return mark_failure(
+            run_state,
+            script="kicad_import_assistant.py",
+            step="check_for_existing_part",
+            function_name="check_for_existing_part",
+            failure_reason=f"Unexpected error while checking for existing MPN matches.\n{error}",
+            severity=Severity.ERROR,
+        )
+
+    run_state["duplicate_check"]["checked"] = True
+    run_state["duplicate_check"]["mpn"] = mpn
+    run_state["duplicate_check"]["possible_duplicate"] = bool(existing_matches)
+    run_state["duplicate_check"]["matches"] = [str(match) for match in existing_matches]
+    run_state["duplicate_check"]["match_count"] = len(existing_matches)
+    run_state["duplicate_check"]["user_continued"] = user_continued
+
+    if existing_matches and not user_continued:
+        return mark_failure(
+            run_state,
+            script="kicad_import_assistant.py",
+            step="check_for_existing_part",
+            function_name="check_for_existing_part",
+            failure_reason=(
+                "Import canceled after possible duplicate MPN match.\n"
+                f"MPN: {mpn}\n"
+                f"Matches found: {len(existing_matches)}"
+            ),
+            severity=Severity.INFO,
+        )
+
+    if not existing_matches:
+        print()
+        print("Duplicate check:")
+        print(f"  MPN: {mpn}")
+        print("  Existing matches: none")
+
+    return mark_success(
+        run_state,
+        script="kicad_import_assistant.py",
+        step="check_for_existing_part",
+        function_name="check_for_existing_part",
+        message="Duplicate check complete.",
     )
 
 

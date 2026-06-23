@@ -92,6 +92,17 @@ def initialize_run_state() -> dict:
             "mpn_collected": False,
         },
 
+        # Duplicate / previous-import check.
+        # This uses early MPN before full naming so the user can stop early.
+        "duplicate_check": {
+            "checked": False,
+            "mpn": None,
+            "possible_duplicate": False,
+            "matches": [],
+            "match_count": 0,
+            "user_continued": False,
+        },
+
         # Planned import actions before anything is written.
         # This replaces the old "manifest" concept.
         "import_plan": {

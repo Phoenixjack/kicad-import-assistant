@@ -46,8 +46,30 @@ def mark_failure(
 
 
 def stop_if_failed(run_state: dict) -> None:
-    if not run_state["status"]["success"]:
+    if run_state["status"]["success"]:
+        return
+
+    severity = run_state["status"].get("severity", Severity.ERROR)
+
+    if severity == Severity.ERROR:
         critical_error(run_state)
+
+    graceful_stop(run_state)
+
+
+def graceful_stop(run_state: dict) -> None:
+    status = run_state.get("status", {})
+
+    print()
+    print("Workflow stopped.")
+    print(status.get("failure_reason", "Workflow stopped without additional details."))
+    print(
+        f"{status.get('script')} / "
+        f"{status.get('step')} / "
+        f"{status.get('function_name')}"
+    )
+
+    raise SystemExit
 
 
 def critical_error(run_state: dict) -> None:
