@@ -152,9 +152,14 @@ def main() -> None:
     run_state = merge_symbol_preview_stage(run_state)
     stop_if_failed(run_state)
 
-    print()
-    print("Symbol merge complete.")
-    print("Next step: config save / cleanup.")
+    run_state = save_successful_config_state(run_state)
+    stop_if_failed(run_state)
+
+    run_state = cleanup_import_temp_files(run_state)
+    stop_if_failed(run_state)
+
+    run_state = print_final_import_summary(run_state)
+    stop_if_failed(run_state)
     # END MAIN()
 
 
@@ -1899,6 +1904,249 @@ def merge_symbol_preview_stage(run_state: dict) -> dict:
         function_name="merge_symbol_preview_stage",
         message="Symbol preview merged into target library.",
     )
+
+
+def save_successful_config_state(run_state: dict) -> dict:
+    """
+    Owns:
+    - run_state["status"]
+    - run_state["finalization"]["config_saved"]
+
+    Saves recent successful run values back to config.
+
+    This stage runs only after import writes have succeeded.
+    """
+    run_state = ensure_finalization_state(run_state)
+    config = run_state["config"]["general_config"]
+
+    if config is None:
+        return mark_failure(
+            run_state,
+            script="kicad_import_assistant.py",
+            step="save_successful_config_state",
+            function_name="save_successful_config_state",
+            failure_reason="Cannot save config because loaded config is missing.",
+            severity=Severity.ERROR,
+        )
+
+    run_state["finalization"]["attempted"] = True
+
+    try:
+        config.setdefault("last", {})
+
+        if run_state["current"].get("zip_folder") is not None:
+            config["last"]["zip_folder"] = str(run_state["current"]["zip_folder"])
+
+        if run_state["current"].get("library_root") is not None:
+            config["last"]["library_root"] = str(run_state["current"]["library_root"])
+
+        if run_state["current"].get("library_folder") is not None:
+            config["last"]["library_folder"] = str(run_state["current"]["library_folder"])
+
+        if run_state["current"].get("target_library") is not None:
+            config["last"]["target_library"] = run_state["current"]["target_library"]
+
+        if run_state["profile"].get("selected_profile") is not None:
+            config["last"]["profile"] = run_state["profile"]["selected_profile"]
+
+        if run_state.get("recent_values"):
+            config["recent_values"] = run_state["recent_values"]
+
+        save_config(config)
+
+    except Exception as error:
+        return mark_failure(
+            run_state,
+            script="kicad_import_assistant.py",
+            step="save_successful_config_state",
+            function_name="save_successful_config_state",
+            failure_reason=f"Failed to save successful config state.\n{error}",
+            severity=Severity.ERROR,
+        )
+
+    run_state["finalization"]["config_saved"] = True
+
+    print()
+    print("Config updated:")
+    print(f"  Config file: {CONFIG_PATH}")
+
+    return mark_success(
+        run_state,
+        script="kicad_import_assistant.py",
+        step="save_successful_config_state",
+        function_name="save_successful_config_state",
+        message="Successful config state saved.",
+    )
+
+
+def cleanup_import_temp_files(run_state: dict) -> dict:
+    """
+    Owns:
+    - run_state["status"]
+    - run_state["finalization"]["temp_cleanup_attempted"]
+    - run_state["finalization"]["temp_cleanup_performed"]
+    - run_state["finalization"]["temp_cleanup_skipped_reason"]
+
+    Deletes the temporary import folder only when it is safe to do so.
+
+    Preserve temp files when:
+    - keep_temp_files is enabled
+    - preview/import-plan CSV was written
+    """
+    run_state = ensure_finalization_state(run_state)
+    config = run_state["config"]["general_config"]
+    temp_folder = run_state["import_plan"].get("temp_folder_path")
+    manifest_path = run_state["import_plan"].get("manifest_path")
+
+    keep_temp_files = bool(config.get("keep_temp_files", False))
+
+    preserve_temp_files = False
+    skipped_reason = None
+
+    preserve_temp_files = keep_temp_files
+    skipped_reason = None
+
+    if keep_temp_files:
+        skipped_reason = "Config keep_temp_files is enabled."
+
+    run_state["finalization"]["temp_cleanup_attempted"] = True
+    run_state["finalization"]["temp_folder"] = temp_folder
+
+    try:
+        cleanup_performed = cleanup_temp_folder(
+            temp_folder=temp_folder,
+            keep_temp_files=preserve_temp_files,
+        )
+
+    except Exception as error:
+        return mark_failure(
+            run_state,
+            script="kicad_import_assistant.py",
+            step="cleanup_import_temp_files",
+            function_name="cleanup_import_temp_files",
+            failure_reason=f"Failed during temp-folder cleanup.\n{error}",
+            severity=Severity.ERROR,
+        )
+
+    run_state["finalization"]["temp_cleanup_performed"] = cleanup_performed
+    run_state["finalization"]["temp_cleanup_skipped_reason"] = skipped_reason
+
+    print()
+    print("Temp folder cleanup:")
+
+    if cleanup_performed:
+        print("  Deleted temp folder.")
+        print(f"  Temp folder: {temp_folder}")
+
+    elif skipped_reason:
+        print("  Preserved temp folder.")
+        print(f"  Reason: {skipped_reason}")
+        print(f"  Temp folder: {temp_folder}")
+
+    else:
+        print("  Temp folder cleanup was skipped or not needed.")
+        print(f"  Temp folder: {temp_folder}")
+
+    return mark_success(
+        run_state,
+        script="kicad_import_assistant.py",
+        step="cleanup_import_temp_files",
+        function_name="cleanup_import_temp_files",
+        message="Temp-folder cleanup stage complete.",
+    )
+
+
+def print_final_import_summary(run_state: dict) -> dict:
+    """
+    Owns:
+    - run_state["status"]
+    - run_state["finalization"]["final_summary_printed"]
+    - run_state["was_successful"]
+
+    Prints the final successful import summary.
+    """
+    run_state = ensure_finalization_state(run_state)
+    basename = run_state["import_plan"]["basename"]
+    target_footprint = run_state["import_plan"]["footprint"].get("target_path")
+    target_model = run_state["import_plan"]["model"].get("target_path")
+    target_symbol_file = run_state["current"].get("target_symbol_file")
+    symbol_backup = run_state["symbol_merge"].get("backup_path")
+    manifest_path = run_state["import_plan"].get("manifest_path")
+    temp_folder = run_state["import_plan"].get("temp_folder_path")
+
+    print()
+    print("IMPORT COMPLETE")
+    print(f"  Basename: {basename}")
+
+    print()
+    print("Imported files:")
+
+    if target_footprint is not None:
+        print(f"  Footprint: {target_footprint}")
+    else:
+        print("  Footprint: SKIPPED")
+
+    if target_model is not None:
+        print(f"  3D model:  {target_model}")
+    else:
+        print("  3D model:  SKIPPED")
+
+    if run_state["symbol"].get("merged"):
+        print(f"  Symbol:    {target_symbol_file}")
+    else:
+        print("  Symbol:    SKIPPED")
+
+    print()
+    print("Safety artifacts:")
+
+    if symbol_backup is not None:
+        print(f"  Symbol backup: {symbol_backup}")
+    else:
+        print("  Symbol backup: none")
+
+    if manifest_path is not None:
+        print(f"  Preview CSV:    {manifest_path}")
+    else:
+        print("  Preview CSV:    not written")
+
+    print()
+    print("Cleanup:")
+    print(f"  Temp folder: {temp_folder}")
+    print(f"  Temp deleted: {run_state['finalization']['temp_cleanup_performed']}")
+
+    run_state["finalization"]["final_summary_printed"] = True
+    run_state["was_successful"] = True
+
+    return mark_success(
+        run_state,
+        script="kicad_import_assistant.py",
+        step="print_final_import_summary",
+        function_name="print_final_import_summary",
+        message="Final import summary printed.",
+    )
+
+
+def ensure_finalization_state(run_state: dict) -> dict:
+    """
+    Ensure finalization state exists even if an older/incomplete run_state
+    initializer is being used.
+    """
+    defaults = {
+        "attempted": False,
+        "config_saved": False,
+        "temp_cleanup_attempted": False,
+        "temp_cleanup_performed": False,
+        "temp_cleanup_skipped_reason": None,
+        "temp_folder": None,
+        "final_summary_printed": False,
+    }
+
+    run_state.setdefault("finalization", {})
+
+    for key, value in defaults.items():
+        run_state["finalization"].setdefault(key, value)
+
+    return run_state
 
 
 if __name__ == "__main__":

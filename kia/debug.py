@@ -32,8 +32,7 @@ DEBUG_CATEGORIES = {
     "schema": False,       # naming schema loading and parsing
     "zip": False,          # ZIP extraction/temp folder details
     "files": False,        # detected files, selected files
-    "libraries": True,     #
-    "suggestions": False,  # JSON rule matches/defaults                              PHASE OUT
+    "libraries": False,    #
     "suggest": False,      # JSON rule matches/defaults
     "tokens": False,       # prompt/default token values
     "basename": False,     # token cleanup and final basename generation

@@ -112,6 +112,19 @@ def initialize_run_state() -> dict:
             "copied_files": [],
         },
 
+        # Second write stage: edit copied footprint contents.
+        # This only modifies the copied .kicad_mod file.
+        "footprint_update": {
+            "attempted": False,
+            "complete": False,
+            "target_footprint": None,
+            "internal_name_updated": False,
+            "value_updated": False,
+            "model_reference_updated": False,
+            "model_reference_added": False,
+            "metadata_added": False,
+        },
+
         # Third write stage: create edited symbol preview only.
         # This writes a preview file in the extracted temp folder.
         # It does not modify the target symbol library.
@@ -142,19 +155,6 @@ def initialize_run_state() -> dict:
             "merged_symbol_name": None,
             "merge_result": None,
             "precheck": None,
-        },
-
-        # Second write stage: edit copied footprint contents.
-        # This only modifies the copied .kicad_mod file.
-        "footprint_update": {
-            "attempted": False,
-            "complete": False,
-            "target_footprint": None,
-            "internal_name_updated": False,
-            "value_updated": False,
-            "model_reference_updated": False,
-            "model_reference_added": False,
-            "metadata_added": False,
         },
 
         # Planned import actions before anything is written.
@@ -248,7 +248,19 @@ def initialize_run_state() -> dict:
             "user_chose_import": False,
             "copied": False,
         },
-
+        
+        # Final stage: save successful run state, cleanup temp files,
+        # and print final summary.
+        "finalization": {
+            "attempted": False,
+            "config_saved": False,
+            "temp_cleanup_attempted": False,
+            "temp_cleanup_performed": False,
+            "temp_cleanup_skipped_reason": None,
+            "temp_folder": None,
+            "final_summary_printed": False,
+        },
+        
         # Final aggregate flags/results.
         "user_confirmed_import": False,
         "copied_files": [],
