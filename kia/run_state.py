@@ -73,6 +73,17 @@ def initialize_run_state() -> dict:
             "target_symbol_file": None,
         },
 
+        # Source files discovered after ZIP extraction / source scan.
+        # These are the raw candidates found before the user chooses what to import.
+        "source_files": {
+            "found_files": None,
+            "footprints": [],
+            "symbols": [],
+            "models": [],
+            "other": [],
+            "scan_complete": False,
+        },
+
         # Planned import actions before anything is written.
         # This replaces the old "manifest" concept.
         "import_plan": {

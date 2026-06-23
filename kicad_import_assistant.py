@@ -20,6 +20,7 @@ documented in README.md, FEATURES.md, and VERSION_HISTORY.md.
 
 APP_VERSION = "0.10.0"
 
+from datetime import datetime
 import tkinter as tk
 from pathlib import Path
 from kia.debug import (
@@ -55,7 +56,6 @@ from kia.source_scan import (
     extract_zip_to_temp,
     find_import_files,
     cleanup_temp_folder,
-    print_import_file_summary,
 )
 from kia.naming import (
     build_basename_from_prompts, 
@@ -103,9 +103,15 @@ def main() -> None:
     run_state = resolve_target_library(run_state)
     stop_if_failed(run_state)
 
+    run_state = prepare_import_source(run_state)
+    stop_if_failed(run_state)
+
+    run_state = discover_source_files(run_state)
+    stop_if_failed(run_state)
+
     print()
-    print("Early staged workflow complete.")
-    print("Next step: source extraction / file discovery.")
+    print("Source discovery complete.")
+    print("Next step: naming / import plan.")
     # END MAIN()
 
 
@@ -305,6 +311,140 @@ def resolve_target_library(run_state: dict) -> dict:
     )
 
 
+def prepare_import_source(run_state: dict) -> dict:
+    """
+    Owns:
+    - run_state["status"]
+    - run_state["import_plan"]["temp_folder_path"]
+
+    Extracts the selected ZIP file to a temporary source folder.
+    """
+    zip_path = run_state["current"]["zip_path"]
+
+    try:
+        extract_root = extract_zip_to_temp(zip_path)
+
+    except SystemExit as error:
+        return mark_failure(
+            run_state,
+            script="kicad_import_assistant.py",
+            step="prepare_import_source",
+            function_name="prepare_import_source",
+            failure_reason=f"ZIP extraction failed.\n{error}",
+            severity=Severity.ERROR,
+        )
+
+    except Exception as error:
+        return mark_failure(
+            run_state,
+            script="kicad_import_assistant.py",
+            step="prepare_import_source",
+            function_name="prepare_import_source",
+            failure_reason=f"Unexpected error while extracting ZIP.\n{error}",
+            severity=Severity.ERROR,
+        )
+
+    if not extract_root.exists() or not extract_root.is_dir():
+        return mark_failure(
+            run_state,
+            script="kicad_import_assistant.py",
+            step="prepare_import_source",
+            function_name="prepare_import_source",
+            failure_reason=f"Extracted source folder is not valid:\n{extract_root}",
+            severity=Severity.ERROR,
+        )
+
+    run_state["import_plan"]["temp_folder_path"] = extract_root
+
+    return mark_success(
+        run_state,
+        script="kicad_import_assistant.py",
+        step="prepare_import_source",
+        function_name="prepare_import_source",
+        message="Import source extracted.",
+    )
+
+
+def discover_source_files(run_state: dict) -> dict:
+    """
+    Owns:
+    - run_state["status"]
+    - run_state["source_files"]
+    - run_state["symbol"]["exists_in_source"]
+    - run_state["footprint"]["exists_in_source"]
+    - run_state["model"]["exists_in_source"]
+
+    Scans the extracted source folder for KiCad-relevant files.
+    """
+    extract_root = run_state["import_plan"]["temp_folder_path"]
+
+    if extract_root is None:
+        return mark_failure(
+            run_state,
+            script="kicad_import_assistant.py",
+            step="discover_source_files",
+            function_name="discover_source_files",
+            failure_reason="Cannot scan source files because temp_folder_path is None.",
+            severity=Severity.ERROR,
+        )
+
+    if not extract_root.exists() or not extract_root.is_dir():
+        return mark_failure(
+            run_state,
+            script="kicad_import_assistant.py",
+            step="discover_source_files",
+            function_name="discover_source_files",
+            failure_reason=f"Cannot scan invalid source folder:\n{extract_root}",
+            severity=Severity.ERROR,
+        )
+
+    found_files = find_import_files(extract_root)
+
+    footprints = found_files.get("footprints", [])
+    symbols = found_files.get("symbols", [])
+    models = found_files.get("models", [])
+    other = found_files.get("other", [])
+
+    if not footprints and not symbols and not models:
+        return mark_failure(
+            run_state,
+            script="kicad_import_assistant.py",
+            step="discover_source_files",
+            function_name="discover_source_files",
+            failure_reason=(
+                "No KiCad import files were found in the selected source.\n"
+                f"Source folder: {extract_root}"
+            ),
+            severity=Severity.ERROR,
+        )
+
+    run_state["source_files"]["found_files"] = found_files
+    run_state["source_files"]["footprints"] = footprints
+    run_state["source_files"]["symbols"] = symbols
+    run_state["source_files"]["models"] = models
+    run_state["source_files"]["other"] = other
+    run_state["source_files"]["scan_complete"] = True
+
+    run_state["footprint"]["exists_in_source"] = bool(footprints)
+    run_state["symbol"]["exists_in_source"] = bool(symbols)
+    run_state["model"]["exists_in_source"] = bool(models)
+
+    print()
+    print("Source discovery summary:")
+    print(f"  Footprints: {len(footprints)}")
+    print(f"  Symbols: {len(symbols)}")
+    print(f"  Models: {len(models)}")
+    print(f"  Other files: {len(other)}")
+
+    return mark_success(
+        run_state,
+        script="kicad_import_assistant.py",
+        step="discover_source_files",
+        function_name="discover_source_files",
+        message="Source files discovered.",
+    )
+
+    
 if __name__ == "__main__":
     main()
 

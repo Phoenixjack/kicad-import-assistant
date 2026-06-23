@@ -8,6 +8,9 @@ Breaking refactor work in progress on the `refactor-debug-cleanup` branch.
 
 Completed in this checkpoint:
 
+* Adds staged ZIP extraction and source file discovery to the run_state pipeline.
+* Stores discovered source candidates under run_state["source_files"].
+* Stops intentionally before naming and import-plan creation.
 * Adds `kia/run_state.py`.
 * Adds `initialize_run_state()` as the central per-import workflow state initializer.
 * Adds `kia/workflow_status.py`.
