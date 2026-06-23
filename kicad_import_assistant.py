@@ -109,6 +109,9 @@ def main() -> None:
     run_state = discover_source_files(run_state)
     stop_if_failed(run_state)
 
+    run_state = collect_part_identity(run_state)
+    stop_if_failed(run_state)
+
     run_state = build_import_basename(run_state)
     stop_if_failed(run_state)
 
@@ -449,6 +452,84 @@ def discover_source_files(run_state: dict) -> dict:
     )
 
 
+def collect_part_identity(run_state: dict) -> dict:
+    """
+    Owns:
+    - run_state["status"]
+    - run_state["naming"]["suggested_defaults"]
+    - run_state["naming"]["mpn"]
+    - run_state["naming"]["mpn_collected"]
+
+    Collects the part identity early so duplicate checking can later happen
+    before the full naming workflow.
+    """
+    found_files = run_state["source_files"]["found_files"]
+
+    if not found_files:
+        return mark_failure(
+            run_state,
+            script="kicad_import_assistant.py",
+            step="collect_part_identity",
+            function_name="collect_part_identity",
+            failure_reason="Cannot collect part identity because no source files were discovered.",
+            severity=Severity.ERROR,
+        )
+
+    try:
+        suggested_defaults = suggest_defaults_from_files(found_files)
+
+        mpn = prompt_with_default(
+            "MPN for duplicate search",
+            suggested_defaults.get("mpn", ""),
+        )
+
+    except SystemExit as error:
+        return mark_failure(
+            run_state,
+            script="kicad_import_assistant.py",
+            step="collect_part_identity",
+            function_name="collect_part_identity",
+            failure_reason=f"MPN collection was canceled or failed.\n{error}",
+            severity=Severity.ERROR,
+        )
+
+    except Exception as error:
+        return mark_failure(
+            run_state,
+            script="kicad_import_assistant.py",
+            step="collect_part_identity",
+            function_name="collect_part_identity",
+            failure_reason=f"Unexpected error while collecting MPN.\n{error}",
+            severity=Severity.ERROR,
+        )
+
+    mpn = mpn.strip()
+
+    if not mpn:
+        return mark_failure(
+            run_state,
+            script="kicad_import_assistant.py",
+            step="collect_part_identity",
+            function_name="collect_part_identity",
+            failure_reason="MPN is required for naming and future duplicate checks.",
+            severity=Severity.ERROR,
+        )
+
+    suggested_defaults["mpn"] = mpn
+
+    run_state["naming"]["suggested_defaults"] = suggested_defaults
+    run_state["naming"]["mpn"] = mpn
+    run_state["naming"]["mpn_collected"] = True
+
+    return mark_success(
+        run_state,
+        script="kicad_import_assistant.py",
+        step="collect_part_identity",
+        function_name="collect_part_identity",
+        message="Part identity collected.",
+    )
+
+
 def build_import_basename(run_state: dict) -> dict:
     """
     Owns:
@@ -483,15 +564,24 @@ def build_import_basename(run_state: dict) -> dict:
             severity=Severity.ERROR,
         )
 
-    try:
+    suggested_defaults = run_state["naming"].get("suggested_defaults", {})
+    mpn = run_state["naming"].get("mpn", "")
+
+    if not suggested_defaults:
         suggested_defaults = suggest_defaults_from_files(found_files)
 
+    if mpn:
+        suggested_defaults["mpn"] = mpn
+
+    try:
         basename = build_basename_from_prompts(
             config=config,
             library_settings=library_settings,
             found_files=found_files,
             suggested_defaults=suggested_defaults,
+            override_defaults={"mpn": mpn},
             naming_schema=naming_schema,
+            prompt_mpn=False,
         )
 
     except SystemExit as error:

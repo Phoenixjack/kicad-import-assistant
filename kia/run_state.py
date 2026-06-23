@@ -84,6 +84,14 @@ def initialize_run_state() -> dict:
             "scan_complete": False,
         },
 
+        # Naming state gathered before and during basename creation.
+        # MPN is collected early so duplicate checking can happen before full naming.
+        "naming": {
+            "suggested_defaults": {},
+            "mpn": None,
+            "mpn_collected": False,
+        },
+
         # Planned import actions before anything is written.
         # This replaces the old "manifest" concept.
         "import_plan": {

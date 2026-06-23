@@ -318,7 +318,15 @@ def prompt_from_options(
         print("Invalid option. Enter a number or listed token.")
 
 
-def build_basename_from_prompts(config: dict, library_settings: dict, found_files: dict, override_defaults: dict | None = None, suggested_defaults: dict | None = None, naming_schema: dict | None = None,) -> str:
+def build_basename_from_prompts(
+    config: dict,
+    library_settings: dict,
+    found_files: dict,
+    override_defaults: dict | None = None,
+    suggested_defaults: dict | None = None,
+    naming_schema: dict | None = None,
+    prompt_mpn: bool = True,
+) -> str:
     """
     Ask the user for naming-convention tokens and build the target basename.
 
@@ -430,7 +438,12 @@ def build_basename_from_prompts(config: dict, library_settings: dict, found_file
 
     base = prompt_with_default("Base / series", suggested["base"])
     feature = prompt_with_default("Feature", suggested["feature"])
-    mpn = prompt_with_default("MPN", suggested["mpn"])
+
+    if prompt_mpn:
+        mpn = prompt_with_default("MPN", suggested["mpn"])
+    else:
+        mpn = suggested.get("mpn", "").strip()
+        print(f"MPN: {mpn} (collected earlier)")
     required_fields = {
         "Library prefix": prefix,
         "Family": family,
