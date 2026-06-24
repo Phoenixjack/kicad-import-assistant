@@ -8,8 +8,8 @@ kia/workflow_config.py
 """
 
 import json
+import copy
 from pathlib import Path
-
 from kia.debug import dbg_print, Severity
 from kia.workflow_schema import load_naming_schema
 from kia.workflow_status import mark_success, mark_failure

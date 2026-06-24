@@ -33,6 +33,7 @@ DEBUG_CATEGORIES = {
     "zip": False,          # ZIP extraction/temp folder details
     "files": False,        # detected files, selected files
     "libraries": False,    #
+    "source": False,       #
     "suggest": False,      # JSON rule matches/defaults
     "tokens": False,       # prompt/default token values
     "basename": False,     # token cleanup and final basename generation
