@@ -42,6 +42,16 @@ def initialize_run_state() -> dict:
             "suggestion_rules": None,
         },
 
+        "capabilities": {
+            "has_footprint": False,
+            "has_symbol": False,
+            "has_model": False,
+            "can_copy_footprint": False,
+            "can_link_model_to_footprint": False,
+            "can_merge_symbol": False,
+            "can_link_symbol_to_footprint": False,
+        },
+
         # Raw user selections and basic validation results.
         # This stage should confirm paths exist and are usable.
         "user_input": {

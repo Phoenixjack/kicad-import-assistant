@@ -1,7 +1,11 @@
 import json
 from pathlib import Path
 
-from kia.debug import debug_print
+from kia.debug import (
+    dbg_blank,
+    dbg_print, 
+    Severity, 
+)
 
 
 SCRIPT_DIR = Path(__file__).resolve().parent.parent
@@ -15,9 +19,7 @@ def load_naming_schema() -> dict:
     If the schema cannot be loaded, return an empty dict so the importer
     can fall back to plain text prompts.
     """
-    
-    debug_print("schema", f"Loading naming schema: {NAMING_SCHEMA_PATH}", stage="load")
-    debug_print("schema", "Naming schema loaded successfully.", stage="load")
+    dbg_print(f"Loading naming schema: {NAMING_SCHEMA_PATH}", Severity.VERBOSE, "schema", "load", "load")
 
     if not NAMING_SCHEMA_PATH.exists():
         print()
@@ -37,6 +39,7 @@ def load_naming_schema() -> dict:
         print(error)
         print("Continuing with plain text prompts.")
         return {}
-
-    debug_print("config", "Naming schema loaded successfully.")
+    
+    dbg_print("Naming schema loaded successfully.", Severity.VERBOSE, "schema", "load", "load")
+    
     return schema
