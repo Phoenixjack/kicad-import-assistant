@@ -6,8 +6,6 @@ Current version: **Unreleased V0.10.0 refactor branch**
 
 Branch: `refactor-debug-cleanup`
 
-Status: compile check passes; full post-refactor runtime smoke testing is still pending.
-
 ## Import Source Handling
 
 The tool can currently:
@@ -258,7 +256,6 @@ Human review is still required.
 
 Planned near-term work:
 
-* Complete runtime smoke testing for the V0.10 workflow-module refactor.
 * Reduce normal output verbosity.
 * Move additional diagnostic output behind `dbg_print()`.
 * Add loose-file import support.

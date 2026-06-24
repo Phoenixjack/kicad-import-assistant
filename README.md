@@ -21,8 +21,6 @@ The main script is now intended to act as a short orchestration layer. Workflow-
 Current branch status:
 
 * `python -m compileall` passes.
-* Full runtime smoke testing is still pending after the workflow-module split.
-* This branch should not be treated as stable until the full ZIP import path has been re-tested.
 
 ## What It Does
 

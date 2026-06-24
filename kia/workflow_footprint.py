@@ -38,7 +38,7 @@ def confirm_file_copy_execution(run_state: dict) -> dict:
             step="confirm_file_copy_execution",
             function_name="confirm_file_copy_execution",
             failure_reason="Cannot confirm file copy because the import plan is not complete.",
-            severity=Severity.ERROR,
+            severity=Severity.WARNING,
         )
 
     print()

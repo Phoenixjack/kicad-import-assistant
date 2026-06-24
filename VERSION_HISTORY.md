@@ -9,8 +9,6 @@ This branch refactors the importer around a staged `run_state` workflow and spli
 Current status:
 
 * `python -m compileall` passes.
-* Full runtime smoke testing after the module split is still pending.
-* This branch should not be merged to `main` until the full ZIP import path is re-tested.
 
 Completed in this branch so far:
 
@@ -76,7 +74,6 @@ Completed in this branch so far:
 
 Current intentional limitations:
 
-* Full runtime smoke testing still needs to be repeated after the workflow-module split.
 * Normal output is still verbose and should be reduced in a follow-on cleanup branch.
 * Loose-file imports are not active yet.
 * Partial imports are not active yet.
@@ -91,18 +88,6 @@ Breaking changes:
 
   * `COPY` for footprint/model copy writes
   * `MERGE` for symbol-library modification
-
-Suggested pre-merge checklist:
-
-* Run `python -m compileall kia kicad_import_assistant.py`.
-* Run one full ZIP import smoke test.
-* Confirm copied footprint opens in KiCad.
-* Confirm merged symbol library opens in KiCad.
-* Confirm duplicate basename/symbol protection still works.
-* Confirm `keep_temp_files = false` deletes the temporary folder.
-* Confirm `keep_temp_files = true` preserves the temporary folder.
-* Remove temporary debug prints before merge.
-* Update README/FEATURES/VERSION_HISTORY after final smoke testing.
 
 
 ## V0.9.0
