@@ -1,46 +1,108 @@
 # Version History
 
-## VERSION_HISTORY.md update
-
-## Unreleased - V0.10 Refactor Branch
+## Unreleased - V0.10.0 Refactor Branch
 
 Breaking refactor work in progress on the `refactor-debug-cleanup` branch.
 
-Completed in this checkpoint:
+This branch refactors the importer around a staged `run_state` workflow and splits many workflow-stage functions out of `kicad_import_assistant.py`.
 
-* Adds staged ZIP extraction and source file discovery to the run_state pipeline.
-* Stores discovered source candidates under run_state["source_files"].
-* Stops intentionally before naming and import-plan creation.
+Current status:
+
+* `python -m compileall` passes.
+* Full runtime smoke testing after the module split is still pending.
+* This branch should not be merged to `main` until the full ZIP import path is re-tested.
+
+Completed in this branch so far:
+
 * Adds `kia/run_state.py`.
 * Adds `initialize_run_state()` as the central per-import workflow state initializer.
-* Adds `kia/workflow_status.py`.
-* Adds status helper functions:
+* Adds staged status handling through `kia/workflow_status.py`.
+* Adds workflow status helpers:
 
   * `mark_success()`
   * `mark_failure()`
   * `stop_if_failed()`
+  * `graceful_stop()`
   * `critical_error()`
-* Updates `kicad_import_assistant.py` so `main()` uses a short staged workflow.
-* Adds early-stage runtime config loading through `load_runtime_config()`.
-* Adds early-stage user input collection and validation through `collect_and_validate_user_input()`.
-* Adds early-stage target library/profile resolution through `resolve_target_library()`.
-* Updates dialog startup behavior to use the nested `config["last"]` structure.
-* Updates library folder selection so the picker uses `config["last"]["library_root"]`.
-* Confirms selecting a `.pretty` folder resolves the custom library root from its parent folder.
-* Confirms selecting `_testIC.pretty` can infer the `IC` target profile.
-* Renames workflow status helper parameters from `import_result` to `run_state`.
-* Updates stale comments referring to old `config["last_*"]` keys.
+* Refactors `kicad_import_assistant.py` toward orchestration-only behavior.
+* Splits workflow stages into helper modules:
 
-Current intentional limitation:
+  * `kia/workflow_config.py`
+  * `kia/workflow_input.py`
+  * `kia/workflow_source.py`
+  * `kia/workflow_naming.py`
+  * `kia/workflow_plan.py`
+  * `kia/workflow_footprint.py`
+  * `kia/workflow_symbol.py`
+  * `kia/workflow_final.py`
+  * `kia/workflow_schema.py`
+* Adds `kia/app_info.py` for shared application version metadata.
+* Restores the full staged ZIP import path after the initial refactor split.
+* Adds early MPN collection before full naming.
+* Adds duplicate/previous-import warning based on early MPN search.
+* Updates basename generation to reuse the early-collected MPN.
+* Adds staged import-plan creation.
+* Adds optional preview import-plan CSV creation.
+* Changes file-copy confirmation from older `IMPORT` confirmation to explicit `COPY`.
+* Adds staged footprint/model copy and rename behavior.
+* Adds copied-footprint content update stage.
+* Updates copied footprint:
 
-* The staged workflow currently stops after early validation and target library resolution.
-* Source extraction, file discovery, naming, import planning, and actual import execution are not yet restored into the new staged pipeline.
+  * internal footprint name
+  * visible `Value` field
+  * 3D model reference
+  * hidden import metadata
+* Adds staged symbol preview generation.
+* Updates preview symbol:
+
+  * parent symbol name
+  * nested KiCad unit names
+  * `Footprint` property
+  * hidden import metadata
+* Fixes symbol metadata placement so metadata is added to the parent symbol, not nested drawing/unit symbol blocks.
+* Changes symbol-library modification confirmation from older `IMPORT` confirmation to explicit `MERGE`.
+* Adds target symbol library backup before merge.
+* Adds staged symbol preview merge into the target `.kicad_sym` library.
+* Adds finalization state.
+* Adds successful config-save stage.
+* Adds temp-folder cleanup stage.
+* Changes cleanup behavior so `keep_temp_files` is the sole preservation control.
+* Adds final import summary stage.
+* Sets `run_state["was_successful"]` after full successful completion.
+* Fixes finalization `run_state` nesting error.
+* Adds defensive `ensure_finalization_state()`.
+* Repairs workflow-module dependency/import issues after splitting the monolithic script.
+* Confirms the refactored module split compiles with `python -m compileall`.
+
+Current intentional limitations:
+
+* Full runtime smoke testing still needs to be repeated after the workflow-module split.
+* Normal output is still verbose and should be reduced in a follow-on cleanup branch.
+* Loose-file imports are not active yet.
+* Partial imports are not active yet.
+* Existing-symbol/existing-model linking workflows are not active yet.
 
 Breaking changes:
 
-* This branch no longer preserves backward compatibility with the older flat `last_*` config keys.
+* This branch no longer preserves backward compatibility with the older flat `last_*` config keys as the primary config structure.
 * The config structure is moving toward a nested `config["last"]` object.
 * `run_state` is now the intended runtime data structure for workflow state and staged status reporting.
+* Confirmation prompts are now stage-specific:
+
+  * `COPY` for footprint/model copy writes
+  * `MERGE` for symbol-library modification
+
+Suggested pre-merge checklist:
+
+* Run `python -m compileall kia kicad_import_assistant.py`.
+* Run one full ZIP import smoke test.
+* Confirm copied footprint opens in KiCad.
+* Confirm merged symbol library opens in KiCad.
+* Confirm duplicate basename/symbol protection still works.
+* Confirm `keep_temp_files = false` deletes the temporary folder.
+* Confirm `keep_temp_files = true` preserves the temporary folder.
+* Remove temporary debug prints before merge.
+* Update README/FEATURES/VERSION_HISTORY after final smoke testing.
 
 
 ## V0.9.0

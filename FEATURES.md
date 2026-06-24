@@ -2,11 +2,15 @@
 
 This file describes the current capabilities and known limitations of KiCad Import Assistant.
 
-Current version: **V0.9.0**
+Current version: **Unreleased V0.10.0 refactor branch**
+
+Branch: `refactor-debug-cleanup`
+
+Status: compile check passes; full post-refactor runtime smoke testing is still pending.
 
 ## Import Source Handling
 
-The tool can:
+The tool can currently:
 
 * Select a vendor ZIP file using a GUI file picker.
 * Extract the ZIP file to a temporary folder.
@@ -19,20 +23,28 @@ The tool can:
 * Summarize detected import files.
 * Select candidate footprint, symbol, and model files for import.
 
+Current limitation:
+
+* Loose-file imports are not active yet.
+* Folder imports are not active yet.
+* Current active path is still vendor ZIP import.
+
 ## Config Handling
 
 The tool can:
 
 * Load local JSON configuration.
-* Save updated local JSON configuration.
+* Save updated local JSON configuration after successful import.
 * Remember:
 
   * last ZIP folder
   * last selected library root
+  * last selected library folder
   * last target library
   * recent naming-token values
 * Safely fall back when remembered folders no longer exist.
 * Correct accidental selection of a `.pretty` folder as the library root.
+* Respect `keep_temp_files` during final cleanup.
 
 ## Target Library Resolution
 
@@ -48,19 +60,42 @@ The tool can:
 Example:
 
 ```text
-_testlibrary.pretty
-└─ _testlibrary.kicad_sym
+_testIC.pretty
+└─ _testIC.kicad_sym
 ```
 
-The resolver prefers `_testlibrary.kicad_sym`.
+The resolver prefers `_testIC.kicad_sym`.
+
+## Workflow Architecture
+
+The V0.10 refactor branch uses a staged workflow built around `run_state`.
+
+The main script is intended to perform orchestration only. Workflow behavior is split into helper modules:
+
+```text
+kicad_import_assistant.py
+kia/run_state.py
+kia/workflow_config.py
+kia/workflow_input.py
+kia/workflow_source.py
+kia/workflow_naming.py
+kia/workflow_plan.py
+kia/workflow_footprint.py
+kia/workflow_symbol.py
+kia/workflow_final.py
+kia/workflow_status.py
+```
+
+The goal is to keep each workflow stage responsible for a clear section of `run_state`.
 
 ## Naming Workflow
 
 The tool can:
 
-* Load filename-based suggestion rules.
 * Load naming vocabulary/options from JSON schema.
 * Suggest naming defaults from detected vendor filenames.
+* Collect the manufacturer part number early.
+* Check for possible existing imports before full naming.
 * Prompt for naming tokens using schema-driven menus.
 * Allow:
 
@@ -68,6 +103,7 @@ The tool can:
   * number selection from menus
   * direct token entry
   * custom/free-text values
+  * explicit blanking for optional fields
 * Normalize pitch tokens.
 * Remember recently used naming-token values.
 
@@ -83,11 +119,11 @@ Example:
 CONN_HDMI_RCPT_SMD_V_19P_P0.50_SS53000_SS-53000-003
 ```
 
-## Preview Manifest
+## Preview Import Plan
 
-The tool can optionally create a preview manifest CSV.
+The tool can optionally create a preview import-plan CSV.
 
-The manifest can show:
+The preview can show:
 
 * source footprint file
 * target footprint path
@@ -98,11 +134,11 @@ The manifest can show:
 * intended actions
 * notes about pending or performed steps
 
-Manifest creation currently defaults off and can be enabled at runtime.
+The preview CSV is written into the temporary extraction folder.
 
 ## Footprint/Model Import
 
-After explicit confirmation, the tool can:
+After explicit `COPY` confirmation, the tool can:
 
 * Copy and rename the selected footprint file.
 * Copy and rename the selected STEP/STP model file.
@@ -131,6 +167,7 @@ The preview can:
 * Rename the parent symbol.
 * Rename nested KiCad symbol unit names.
 * Update the symbol `Footprint` property.
+* Add hidden import/review metadata to the parent symbol.
 * Preserve the original source symbol file.
 * Write the edited preview symbol into the temporary extraction folder.
 
@@ -138,7 +175,7 @@ This preview step happens before the real target symbol library is modified.
 
 ## Symbol Merge
 
-The tool can merge the previewed symbol into the resolved target `.kicad_sym` library.
+After explicit `MERGE` confirmation, the tool can merge the previewed symbol into the resolved target `.kicad_sym` library.
 
 Before merging, the tool:
 
@@ -147,7 +184,6 @@ Before merging, the tool:
 * Checks whether the generated symbol name already exists.
 * Refuses duplicate symbol merges.
 * Creates a timestamped backup of the target symbol library.
-* Only merges after the user explicitly types `IMPORT`.
 
 The merge inserts the edited symbol block into the target symbol library before the final library closing parenthesis.
 
@@ -160,14 +196,24 @@ Backup filenames intentionally do not end with `.kicad_sym` so the resolver does
 Example:
 
 ```text
-_testlibrary.kicad_sym.20260609_201609.backup
+_testIC.kicad_sym.20260623_192658.backup
 ```
+
+## Finalization and Cleanup
+
+After successful import, the tool can:
+
+* Save successful run values back to config.
+* Save recent naming-token values.
+* Delete the temporary extraction folder when `keep_temp_files` is false.
+* Preserve the temporary extraction folder when `keep_temp_files` is true.
+* Print a final import summary.
 
 ## Debug Output
 
 The tool has a lightweight developer/debug output system.
 
-Debug messages can now be filtered by:
+Debug messages can be filtered by:
 
 * severity
 * category
@@ -183,67 +229,43 @@ INFO
 VERBOSE
 ```
 
-Current debug categories include areas such as:
-
-```text
-config
-schema
-zip
-files
-suggestions
-suggest
-tokens
-basename
-manifest
-importer
-symbols
-dialogs
-```
-
-Example formatted debug output:
-
-```text
-[  INFO  / CONFIG ] Selected import settings:
-[  INFO  / CONFIG ] Target library........... CONNECTORS
-[ VERBOSE / SYMBOLS / RESOLVE ] Active symbol file matches after backup filter...
-```
-
-The older `debug_print()` function is currently preserved as a backward-compatible wrapper while newer code is gradually migrated to `dbg_print()`.
-
-Debug output is still under active cleanup. Future work may move more raw diagnostic `print()` calls to the staged severity/category system.
-
+Future work will continue moving normal runtime chatter behind `dbg_print()` so normal output becomes shorter while debug output remains available when needed.
 
 ## Current Limitations
 
 The tool currently does not:
 
-* Does not currently query online part databases or distributor APIs.
-* Does not currently enrich part metadata from manufacturer part numbers.
-* Does not currently auto-suggest naming fields from verified external part data.
+* import loose `.kicad_sym`, `.kicad_mod`, `.step`, or `.stp` files directly
+* import from a loose folder of files
+* perform partial imports intentionally
+* link an existing symbol to a newly imported footprint
+* link an existing 3D model to a newly imported footprint
 * overwrite existing footprint/model files
 * overwrite existing symbol definitions
 * perform full KiCad S-expression validation
 * guarantee 3D model orientation
 * validate all pad/pin/schematic correctness
 * guarantee compatibility with all KiCad versions
-* clean up temporary extraction folders automatically
 * provide a full GUI configuration workflow
 * operate as a native KiCad plugin
+* query online part databases or distributor APIs
+* enrich part metadata from manufacturer part numbers
+* auto-suggest naming fields from verified external part data
 
 Human review is still required.
 
+## Near-Term Goals
+
+Planned near-term work:
+
+* Complete runtime smoke testing for the V0.10 workflow-module refactor.
+* Reduce normal output verbosity.
+* Move additional diagnostic output behind `dbg_print()`.
+* Add loose-file import support.
+* Add partial import support.
+* Add workflows for linking existing symbols/models to newly imported footprints.
+
 ## Future Metadata Enrichment Goals
-
-- Add part-class-specific schema profiles so connector, IC, passive, module, power, mechanical, and generic imports can use different prompt vocabularies.
-- Separate physical import targets from naming/prompt profiles.
-- Avoid using connector-specific role/orientation prompts for non-connector parts.
-- Add stronger guardrails for target folders containing multiple active `.kicad_sym` libraries.
-- Warn if more than N active .kicad_sym files are found in one .pretty folder.
-- Refuse automatic symbol merge if multiple active symbol libraries exist and none matches the .pretty folder name.
-- Add an interactive symbol-library selection step when multiple valid target libraries are present.
-- Print the candidate list clearly.
-- Require the user to pick one manually or fix config.
-
 
 Future versions may add optional online metadata enrichment.
 
@@ -258,23 +280,7 @@ The intended workflow would be:
 
 Possible metadata sources may include provider APIs such as Nexar/Octopart, DigiKey, Mouser, SnapMagic/SnapEDA, or other structured part-data services.
 
-Potential fields to enrich:
-
-* manufacturer
-* manufacturer part number
-* short description
-* datasheet URL
-* product page URL
-* package/case
-* contact count or pin count
-* pitch
-* mount style
-* orientation
-* base series
-* lifecycle/status
-* RoHS/REACH data
-* distributor SKUs
-
 Metadata enrichment should remain optional. The core importer should continue working offline from local files alone.
 
 External metadata should be treated as a suggestion requiring user review, not as unquestioned truth. Geometry, pin mapping, footprint correctness, 3D model orientation, and schematic correctness should still require human validation.
+

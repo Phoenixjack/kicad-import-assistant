@@ -6,25 +6,23 @@ The tool is designed around a cautious workflow: preview first, confirm explicit
 
 ## Current Version
 
-**V0.9.0**
+**Unreleased V0.10.0 refactor branch**
+
+Current branch: `refactor-debug-cleanup`
+
+This branch is a breaking refactor of the V0.9 import workflow. It is not yet a tagged stable release.
 
 ## V0.10 refactor branch note
 
-The refactor-debug-cleanup branch is currently being reworked as a breaking V0.10 refactor.
+The `refactor-debug-cleanup` branch moves the importer from a large monolithic `kicad_import_assistant.py` script into a staged workflow built around a shared `run_state` dictionary.
 
-This branch introduces an early staged workflow built around a shared run_state dictionary. The goal is to make the main script act as a short orchestration layer while helper functions handle specific stages such as config loading, user input validation, library/profile resolution, source discovery, naming, import planning, and execution.
+The main script is now intended to act as a short orchestration layer. Workflow-stage functions have been split into helper modules under `kia/`, including config loading, source handling, input validation, naming, import planning, footprint/model handling, symbol handling, final reporting, and workflow status.
 
-Current early-stage behavior:
+Current branch status:
 
-Initializes Tkinter file/folder dialogs.
-Loads runtime config and naming schema.
-Collects and validates the selected vendor ZIP file and target library folder.
-Resolves .pretty folder selections back to the custom library root.
-Infers a target profile from the selected .pretty folder when possible.
-Prompts for/accepts the target library profile.
-Stops after early-stage validation and target resolution.
-
-This branch is not currently intended as the stable import workflow. Use the latest tagged release or main branch for stable behavior.
+* `python -m compileall` passes.
+* Full runtime smoke testing is still pending after the workflow-module split.
+* This branch should not be treated as stable until the full ZIP import path has been re-tested.
 
 ## What It Does
 
@@ -33,9 +31,12 @@ KiCad Import Assistant can currently:
 * Select a vendor ZIP file.
 * Extract the ZIP to a temporary folder.
 * Detect KiCad footprint, symbol, and STEP/STP model files.
-* Suggest naming defaults from JSON rules.
+* Suggest naming defaults from detected files.
 * Prompt for naming tokens using schema-driven menus.
 * Generate standardized footprint/symbol/model basenames.
+* Detect possible existing imports by early MPN search.
+* Create and optionally write a preview import-plan CSV.
+* Require explicit confirmation before file-copy writes.
 * Copy and rename footprint/model files into a target `.pretty` folder.
 * Update copied footprint internals:
 
@@ -46,10 +47,14 @@ KiCad Import Assistant can currently:
 * Create an edited symbol preview file.
 * Update symbol names, nested KiCad unit names, and symbol `Footprint` properties.
 * Resolve the correct target `.kicad_sym` file.
+* Require explicit confirmation before modifying the target symbol library.
 * Create a timestamped backup of the target symbol library.
 * Merge the previewed symbol into the target symbol library when safety checks pass.
 * Refuse duplicate footprint/model overwrites.
 * Refuse duplicate symbol merges.
+* Save successful run state back to config.
+* Clean up temporary extraction folders when `keep_temp_files` is false.
+* Print a final import summary.
 
 More detailed feature notes are available in [`FEATURES.md`](FEATURES.md).
 
@@ -57,34 +62,47 @@ Version-by-version history is available in [`VERSION_HISTORY.md`](VERSION_HISTOR
 
 Development note: active refactor planning is tracked in [`REFACTOR_PLAN.md`](REFACTOR_PLAN.md) while the debug/refactor cleanup branch is in progress.
 
-
 ## Basic Workflow
 
-The current workflow is:
+The current staged workflow is:
 
 1. Select a vendor ZIP file.
-2. Select the custom KiCad library root.
+2. Select the custom KiCad library root or target `.pretty` folder.
 3. Resolve the target `.pretty` folder and `.kicad_sym` file.
 4. Extract and scan the ZIP.
 5. Suggest naming defaults.
-6. Prompt for naming tokens.
-7. Generate the final basename.
-8. Create a symbol preview.
-9. Optionally create a manifest CSV.
-10. Require the user to type `IMPORT`.
-11. Copy/rename footprint and model files.
-12. Update the copied footprint.
-13. Back up the target symbol library.
-14. Merge the edited symbol into the target symbol library.
+6. Collect the manufacturer part number early.
+7. Check for possible existing imports by MPN.
+8. Prompt for naming tokens.
+9. Generate the final basename.
+10. Select source footprint, symbol, and model files.
+11. Create the import plan.
+12. Optionally write a preview import-plan CSV.
+13. Require the user to type `COPY`.
+14. Copy/rename footprint and model files.
+15. Update the copied footprint.
+16. Create an edited symbol preview.
+17. Require the user to type `MERGE`.
+18. Back up the target symbol library.
+19. Merge the edited symbol into the target symbol library.
+20. Save successful config state.
+21. Clean up the temporary import folder when allowed.
+22. Print the final import summary.
 
 ## Safety Behavior
 
 This tool is intentionally conservative.
 
-Before writing files, it requires this exact confirmation:
+Before copying footprint/model files, it requires this exact confirmation:
 
 ```text
-IMPORT
+COPY
+```
+
+Before modifying a target symbol library, it requires this exact confirmation:
+
+```text
+MERGE
 ```
 
 The tool currently refuses to overwrite existing footprint/model files.
@@ -92,6 +110,8 @@ The tool currently refuses to overwrite existing footprint/model files.
 Before merging a symbol, it checks whether the generated symbol already exists in the resolved target symbol library.
 
 Before modifying a target `.kicad_sym` library, it creates a timestamped backup file.
+
+Temp folders are deleted after successful completion when `keep_temp_files` is false. When `keep_temp_files` is true, the temp folder is preserved for review/debugging.
 
 Even with these safeguards, this is still early-development software. Back up your KiCad libraries before testing it against production libraries.
 
@@ -101,29 +121,34 @@ The project currently assumes a custom KiCad library layout similar to:
 
 ```text
 CUSTOM_LIBRARIES/
-├─ CONNECTORS.pretty/
+├─ _testCONN.pretty/
 │  ├─ *.kicad_mod
 │  ├─ *.step
-│  └─ CONNECTORS.kicad_sym
+│  └─ _testCONN.kicad_sym
+├─ _testIC.pretty/
+│  ├─ *.kicad_mod
+│  ├─ *.step
+│  └─ _testIC.kicad_sym
 └─ _TOOLS/
    └─ kicad-import-assistant/
       ├─ kicad_import_assistant.py
-      ├─ kicad_import_assistant_config.example.json
+      ├─ kicad_import_assistant_config.json
       ├─ kicad_import_naming_schema.json
-      ├─ kicad_import_suggestion_rules.json
       └─ kia/
-         ├─ __init__.py
-         ├─ config.py
+         ├─ app_info.py
          ├─ debug.py
-         ├─ dialogs.py
-         ├─ importer.py
-         ├─ manifest.py
-         ├─ naming.py
-         ├─ schema.py
-         ├─ suggestions.py
-         ├─ symbol_editor.py
-         ├─ symbols.py
-         └─ zip_scan.py
+         ├─ run_state.py
+         ├─ workflow_config.py
+         ├─ workflow_final.py
+         ├─ workflow_footprint.py
+         ├─ workflow_input.py
+         ├─ workflow_naming.py
+         ├─ workflow_plan.py
+         ├─ workflow_schema.py
+         ├─ workflow_source.py
+         ├─ workflow_status.py
+         ├─ workflow_symbol.py
+         └─ lower-level helper modules
 ```
 
 Footprints, STEP models, and the associated symbol library may be kept together inside the `.pretty` folder.
