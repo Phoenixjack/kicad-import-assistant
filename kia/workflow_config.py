@@ -22,6 +22,7 @@ CONFIG_PATH = SCRIPT_DIR / "kicad_import_assistant_config.json"
 
 DEFAULT_CONFIG = {
     "last": {
+        "source_folder": "%USERPROFILE%/Downloads",
         "zip_folder": "%USERPROFILE%/Downloads",
         "library_root": "%USERPROFILE%/Documents/KiCAD/CUSTOM_LIBRARIES",
         "library_folder": "%USERPROFILE%/Documents/KiCAD/CUSTOM_LIBRARIES",
@@ -165,6 +166,9 @@ def save_successful_config_state(run_state: dict) -> dict:
 
     try:
         config.setdefault("last", {})
+
+        if run_state["current"].get("source_folder") is not None:
+            config["last"]["source_folder"] = str(run_state["current"]["source_folder"])
 
         if run_state["current"].get("zip_folder") is not None:
             config["last"]["zip_folder"] = str(run_state["current"]["zip_folder"])

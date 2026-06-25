@@ -114,3 +114,36 @@ def cleanup_temp_folder(temp_folder: Path | None, keep_temp_files: bool) -> bool
 
     shutil.rmtree(temp_folder)
     return True
+
+
+def stage_loose_files_to_temp(source_paths: list[Path]) -> Path:
+    """
+    Copy selected loose KiCad-related source files into a temporary import folder.
+
+    This makes loose-file import follow the same downstream workflow as ZIP import:
+    temp folder -> find_import_files() -> import plan.
+    """
+    temp_root = Path(tempfile.mkdtemp(prefix="kicad_import_"))
+
+    dbg_blank(Severity.VERBOSE, "source", stage="stage", source="loose")
+    dbg_print("Staging loose source files.", Severity.INFO, "source", stage="stage", source="loose")
+    dbg_print(f"Temporary source folder: {temp_root}", Severity.INFO, "source", stage="stage", source="loose")
+
+    for source_path in source_paths:
+        source_path = Path(source_path)
+
+        if not source_path.exists() or not source_path.is_file():
+            raise FileNotFoundError(f"Loose source file is invalid: {source_path}")
+
+        target_path = temp_root / source_path.name
+
+        if target_path.exists():
+            raise FileExistsError(
+                f"Duplicate loose source filename would collide in temp folder: {source_path.name}"
+            )
+
+        shutil.copy2(source_path, target_path)
+
+    return temp_root
+
+

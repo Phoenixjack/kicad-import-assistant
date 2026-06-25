@@ -74,6 +74,9 @@ def initialize_run_state() -> dict:
         # Current paths/profile values for this run.
         # These may later update config["last"] if the run succeeds.
         "current": {
+            "source_mode": None,          # "zip" | "loose_files" | "folder"
+            "source_paths": [],           # selected loose files, or [zip_path], or [folder_path]
+            "source_folder": None,        # parent folder for config memory
             "zip_path": None,
             "zip_folder": None,
             "library_root": None,

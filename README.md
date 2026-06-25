@@ -4,31 +4,37 @@ KiCad Import Assistant is a standalone Python utility for importing vendor-provi
 
 The tool is designed around a cautious workflow: preview first, confirm explicitly, create backups where needed, and refuse unsafe overwrites.
 
-## Current Version
+**Unreleased V0.11.0 loose-file import branch**
 
-**Unreleased V0.10.1 refactor branch**
+Current development branch: `feature/loose-file-import`
 
-Current development branch: `refactor/quiet-normal-output`
+Update the branch note/status to something like:
 
-* Full clean-library ZIP import smoke test passes. 
-* Duplicate target-file overwrite protection stops safely. 
-* Normal workflow output has been reduced; detailed stage diagnostics are routed through debug output.
+## V0.11 loose-file import branch note
 
-## V0.10 refactor branch note
+The `feature/loose-file-import` branch adds support for selecting either a single vendor ZIP file or a loose KiCad import file set.
 
-The `refactor-debug-cleanup` branch moves the importer from a large monolithic `kicad_import_assistant.py` script into a staged workflow built around a shared `run_state` dictionary.
+Supported source selections:
 
-The main script is now intended to act as a short orchestration layer. Workflow-stage functions have been split into helper modules under `kia/`, including config loading, source handling, input validation, naming, import planning, footprint/model handling, symbol handling, final reporting, and workflow status.
+- one `.zip` file
+- or one loose file set containing up to:
+  - one `.kicad_mod`
+  - one `.kicad_sym`
+  - one `.step` or `.stp`
 
-Current branch status:
-
-* `python -m compileall` passes.
+Invalid mixed selections, duplicate footprints, duplicate symbols, duplicate models, or multiple ZIP files are rejected before the import workflow begins.
 
 ## What It Does
 
 KiCad Import Assistant can currently:
 
-* Select a vendor ZIP file.
+* Select either a vendor ZIP file or a loose KiCad import file set.
+* Validate import-source selections before staging: 
+	* one ZIP file only 
+	* or one footprint, one symbol, and one model file at most 
+* Remember the last successful import source folder as `source_folder`. 
+* Stage loose import files into a temporary import folder so the normal downstream workflow can process them. 
+* Support older KiCad/vendor footprint roots using `(module ...)` as well as newer `(footprint ...)` roots.
 * Extract the ZIP to a temporary folder.
 * Detect KiCad footprint, symbol, and STEP/STP model files.
 * Suggest naming defaults from detected files.

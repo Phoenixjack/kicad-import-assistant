@@ -1,5 +1,46 @@
 # Version History
 
+## Unreleased - V0.11.0 Loose-File Import Branch
+
+Feature branch: `feature/loose-file-import`
+
+Adds loose-file import source selection while preserving the existing ZIP import workflow.
+
+Changes:
+
+* Adds unified import-source file picker.
+* Allows selecting either:
+  * exactly one vendor ZIP file
+  * or one loose KiCad import file set
+* Supports loose file sets containing up to:
+  * one `.kicad_mod`
+  * one `.kicad_sym`
+  * one `.step` or `.stp`
+* Rejects invalid source selections before import:
+  * ZIP mixed with loose files
+  * multiple ZIP files
+  * multiple footprint files
+  * multiple symbol files
+  * multiple model files
+  * unsupported file extensions
+* Reopens the source picker in the last attempted folder after invalid source selection.
+* Adds `source_folder` config tracking for the last successful import source folder.
+* Stages loose source files into a temporary import folder so the existing downstream import workflow can process them.
+* Keeps ZIP import behavior intact.
+* Adds support for older KiCad/vendor footprint roots using `(module ...)` when updating copied footprint internal names.
+* Confirms ZIP import path still passes.
+* Confirms loose footprint/symbol/model import path passes.
+* Confirms invalid source-selection tests pass.
+
+Current limitations:
+
+* Loose folder import is not active yet.
+* Partial imports are not active yet.
+* Per-item overwrite/merge/import decisions are not active yet.
+* Source-file cleanup/deletion after successful import is not active yet.
+* Missing target symbol library auto-creation is not active yet.
+
+
 ## Unreleased - V0.10.1 Refactor Branch
 
 Breaking refactor work in progress on the `refactor/quiet-normal-output` branch.

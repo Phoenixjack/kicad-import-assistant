@@ -13,6 +13,7 @@ from kia.debug import (
 from kia.workflow_status import mark_success, mark_failure
 from kia.source_scan import (
     extract_zip_to_temp,
+    stage_loose_files_to_temp,
     find_import_files,
     cleanup_temp_folder,
 )
@@ -27,10 +28,35 @@ def prepare_import_source(run_state: dict) -> dict:
 
     Extracts the selected ZIP file to a temporary source folder.
     """
-    zip_path = run_state["current"]["zip_path"]
+    source_mode = run_state["current"].get("source_mode")
+    source_paths = run_state["current"].get("source_paths", [])
+
+    if not source_paths:
+        return mark_failure(
+            run_state,
+            script="kicad_import_assistant.py",
+            step="prepare_import_source",
+            function_name="prepare_import_source",
+            failure_reason="Cannot prepare import source because no source paths were recorded.",
+            severity=Severity.ERROR,
+        )
 
     try:
-        extract_root = extract_zip_to_temp(zip_path)
+        if source_mode == "zip":
+            extract_root = extract_zip_to_temp(source_paths[0])
+
+        elif source_mode == "loose_files":
+            extract_root = stage_loose_files_to_temp(source_paths)
+
+        else:
+            return mark_failure(
+                run_state,
+                script="kicad_import_assistant.py",
+                step="prepare_import_source",
+                function_name="prepare_import_source",
+                failure_reason=f"Unsupported import source mode: {source_mode}",
+                severity=Severity.ERROR,
+            )
 
     except SystemExit as error:
         return mark_failure(

@@ -6,7 +6,7 @@ kia/workflow_input.py
 
 import os
 from pathlib import Path
-from tkinter import filedialog
+from tkinter import filedialog, messagebox
 from kia.symbol_resolver import resolve_target_symbol_file
 from kia.debug import (
     dbg_blank,
@@ -18,12 +18,108 @@ from kia.workflow_status import (
     mark_failure, 
 )
 
+ALLOWED_IMPORT_SOURCE_SUFFIXES = {
+    ".zip",
+    ".kicad_mod",
+    ".kicad_sym",
+    ".step",
+    ".stp",
+}
+
+MODEL_SUFFIXES = {".step", ".stp"}
+
 
 def is_pretty_folder(path: Path) -> bool:
     """
     Return True if the selected path appears to be a KiCad .pretty folder.
     """
     return path.suffix.lower() == ".pretty"
+
+
+def classify_import_source_selection(paths: list[Path]) -> tuple[str, list[Path]]:
+    """
+    Classify selected import source files.
+
+    Valid:
+      - exactly one ZIP file
+      - one loose import set:
+          up to one .kicad_mod
+          up to one .kicad_sym
+          up to one .step/.stp
+
+    Returns:
+      ("zip", [zip_path])
+      ("loose_files", [paths...])
+
+    Raises:
+      ValueError for invalid combinations.
+    """
+    if not paths:
+        raise ValueError("No files were selected.")
+
+    invalid_suffixes = [
+        path for path in paths
+        if path.suffix.lower() not in ALLOWED_IMPORT_SOURCE_SUFFIXES
+    ]
+
+    if invalid_suffixes:
+        raise ValueError(
+            "Unsupported file type selected:\n"
+            + "\n".join(f"- {path.name}" for path in invalid_suffixes)
+        )
+
+    zip_files = [
+        path for path in paths
+        if path.suffix.lower() == ".zip"
+    ]
+
+    loose_files = [
+        path for path in paths
+        if path.suffix.lower() != ".zip"
+    ]
+
+    if zip_files and loose_files:
+        raise ValueError(
+            "Choose either one ZIP file OR one loose symbol/footprint/model set.\n"
+            "Do not mix ZIP files with loose files."
+        )
+
+    if len(zip_files) > 1:
+        raise ValueError("Choose only one ZIP file at a time.")
+
+    if len(zip_files) == 1:
+        return "zip", zip_files
+
+    footprints = [
+        path for path in loose_files
+        if path.suffix.lower() == ".kicad_mod"
+    ]
+
+    symbols = [
+        path for path in loose_files
+        if path.suffix.lower() == ".kicad_sym"
+    ]
+
+    models = [
+        path for path in loose_files
+        if path.suffix.lower() in MODEL_SUFFIXES
+    ]
+
+    errors = []
+
+    if len(footprints) > 1:
+        errors.append("Choose only one footprint file (.kicad_mod).")
+
+    if len(symbols) > 1:
+        errors.append("Choose only one symbol file (.kicad_sym).")
+
+    if len(models) > 1:
+        errors.append("Choose only one 3D model file (.step/.stp).")
+
+    if errors:
+        raise ValueError("\n".join(errors))
+
+    return "loose_files", loose_files
 
 
 def select_target_library_profile(config: dict, suggested_profile: str | None = None) -> str:
@@ -185,29 +281,59 @@ def get_existing_initial_dir(path_value: str, fallback: Path) -> str:
     return str(Path.home())
 
 
-def select_import_source(config: dict) -> Path:
+def select_import_source(config: dict) -> tuple[str, list[Path]]:
     """
-    Open ZIP file picker using the last ZIP folder if possible.
+    Open import source picker.
+
+    Allows either:
+      - one ZIP file
+      - one loose KiCad import file set
+
+    Invalid combinations show an error dialog and loop back to the picker.
     """
+    last_config = config.get("last", {})
+
     initial_dir = get_existing_initial_dir(
-        config.get("last", {}).get("zip_folder", ""),
+        last_config.get("source_folder") or last_config.get("zip_folder", ""),
         Path.home() / "Downloads",
     )
 
-    zip_path = filedialog.askopenfilename(
-        title="Select vendor ZIP file",
-        initialdir = initial_dir,
-        filetypes = [("ZIP files", "*.zip"), ("All files", "*.*")],
-    )
+    current_initial_dir = Path(initial_dir)
 
-    if not zip_path:
-        print("No ZIP selected. Exiting.")
-        raise SystemExit
+    while True:
+        selected_paths = filedialog.askopenfilenames(
+            title="Select import source: one ZIP or one loose KiCad file set",
+            initialdir=str(current_initial_dir),
+            filetypes=[
+                (
+                    "KiCad import sources",
+                    "*.zip *.kicad_mod *.kicad_sym *.step *.stp",
+                ),
+                ("Vendor ZIP", "*.zip"),
+                ("KiCad footprint", "*.kicad_mod"),
+                ("KiCad symbol", "*.kicad_sym"),
+                ("STEP model", "*.step *.stp"),
+                ("All files", "*.*"),
+            ],
+        )
 
-    zip_path = Path(zip_path)
-    config["last_zip_folder"] = str(zip_path.parent)
+        if not selected_paths:
+            print("No import source selected. Exiting.")
+            raise SystemExit
 
-    return zip_path
+        paths = [Path(path) for path in selected_paths]
+
+        if paths:
+            current_initial_dir = paths[0].parent
+
+        try:
+            return classify_import_source_selection(paths)
+
+        except ValueError as error:
+            messagebox.showerror(
+                title="Invalid import source selection",
+                message=str(error),
+            )
 
 
 def select_library_folder(config: dict) -> Path:
@@ -246,7 +372,7 @@ def collect_and_validate_user_input(run_state: dict) -> dict:
     config = run_state["config"]["general_config"]
 
     try:
-        zip_path = select_import_source(config)
+        source_mode, source_paths = select_import_source(config)
         library_folder = select_library_folder(config)
 
     except SystemExit as error:
@@ -259,29 +385,86 @@ def collect_and_validate_user_input(run_state: dict) -> dict:
             severity=Severity.ERROR,
         )
 
-    if not zip_path.exists() or not zip_path.is_file():
+    if not source_paths:
         return mark_failure(
             run_state,
             script="kicad_import_assistant.py",
             step="collect_user_input",
             function_name="collect_and_validate_user_input",
-            failure_reason=f"Selected import source is not a valid file:\n{zip_path}",
+            failure_reason="No import source paths were selected.",
             severity=Severity.ERROR,
         )
 
-    if zip_path.suffix.lower() != ".zip":
+    invalid_paths = [
+        path for path in source_paths
+        if not path.exists() or not path.is_file()
+    ]
+
+    if invalid_paths:
         return mark_failure(
             run_state,
             script="kicad_import_assistant.py",
             step="collect_user_input",
             function_name="collect_and_validate_user_input",
             failure_reason=(
-                "Selected import source is not a ZIP file.\n"
-                f"Source: {zip_path}\n"
-                "Loose-file/folder imports are planned but not active yet."
+                "One or more selected import source files are invalid.\n"
+                + "\n".join(f"- {path}" for path in invalid_paths)
             ),
             severity=Severity.ERROR,
         )
+
+        if source_mode == "zip":
+            zip_path = source_paths[0]
+
+            if zip_path.suffix.lower() != ".zip":
+                return mark_failure(
+                    run_state,
+                    script="kicad_import_assistant.py",
+                    step="collect_user_input",
+                    function_name="collect_and_validate_user_input",
+                    failure_reason=(
+                        "Selected import source was classified as ZIP but is not a ZIP file.\n"
+                        f"Source: {zip_path}"
+                    ),
+                    severity=Severity.ERROR,
+                )
+
+            run_state["current"]["zip_path"] = zip_path
+            run_state["current"]["zip_folder"] = zip_path.parent
+
+        elif source_mode == "loose_files":
+            allowed_suffixes = {".kicad_mod", ".kicad_sym", ".step", ".stp"}
+
+            invalid_loose_files = [
+                path for path in source_paths
+                if path.suffix.lower() not in allowed_suffixes
+            ]
+
+            if invalid_loose_files:
+                return mark_failure(
+                    run_state,
+                    script="kicad_import_assistant.py",
+                    step="collect_user_input",
+                    function_name="collect_and_validate_user_input",
+                    failure_reason=(
+                        "One or more selected loose source files are not supported.\n"
+                        + "\n".join(f"- {path}" for path in invalid_loose_files)
+                    ),
+                    severity=Severity.ERROR,
+                )
+
+            run_state["current"]["zip_path"] = None
+            run_state["current"]["zip_folder"] = None
+
+        else:
+            return mark_failure(
+                run_state,
+                script="kicad_import_assistant.py",
+                step="collect_user_input",
+                function_name="collect_and_validate_user_input",
+                failure_reason=f"Unsupported import source mode: {source_mode}",
+                severity=Severity.ERROR,
+            )
 
     if not library_folder.exists() or not library_folder.is_dir():
         return mark_failure(
@@ -293,11 +476,13 @@ def collect_and_validate_user_input(run_state: dict) -> dict:
             severity=Severity.ERROR,
         )
 
-    run_state["current"]["zip_path"] = zip_path
-    run_state["current"]["zip_folder"] = zip_path.parent
+    run_state["current"]["source_mode"] = source_mode
+    run_state["current"]["source_paths"] = source_paths
+    run_state["current"]["source_folder"] = source_paths[0].parent
     run_state["current"]["library_folder"] = library_folder
 
-    run_state["user_input"]["zip_file_valid"] = True
+    run_state["user_input"]["source_valid"] = True
+    run_state["user_input"]["zip_file_valid"] = source_mode == "zip"
     run_state["user_input"]["library_folder_valid"] = True
     run_state["user_input"]["selections_valid"] = True
 

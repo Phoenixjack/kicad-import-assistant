@@ -2,30 +2,31 @@
 
 This file describes the current capabilities and known limitations of KiCad Import Assistant.
 
-Current version: **Unreleased V0.10.1 refactor branch**
+Current version: **Unreleased V0.11.0 loose-file import branch** 
 
-Branch: `refactor-debug-cleanup`
+Current development branch: `feature/loose-file-import`
 
 ## Import Source Handling
 
-The tool can currently:
-
-* Select a vendor ZIP file using a GUI file picker.
-* Extract the ZIP file to a temporary folder.
-* Recursively detect:
-
-  * `.kicad_mod`
-  * `.kicad_sym`
-  * `.step`
-  * `.stp`
-* Summarize detected import files.
+The tool can currently: * Select a vendor ZIP file using a GUI file picker. 
+* Select a loose KiCad import file set using the same GUI file picker. 
+* Validate that the selected source is either: 
+	* exactly one `.zip` file 
+* or a loose file set containing no more than: 
+	* one `.kicad_mod` 
+	* one `.kicad_sym` 
+	* one `.step` or `.stp` 
+* Reject invalid source selections with an error dialog and return to the picker. 
+* Remember the last attempted picker folder during selection retries. 
+* Remember the last successful import source folder in config as `source_folder`. 
+* Extract ZIP files to a temporary folder. 
+* Stage loose import files into a temporary folder. 
+* Recursively detect: 
+	* `.kicad_mod` 
+	* `.kicad_sym` 
+	* `.step` 
+	* `.stp` 
 * Select candidate footprint, symbol, and model files for import.
-
-Current limitation:
-
-* Loose-file imports are not active yet.
-* Folder imports are not active yet.
-* Current active path is still vendor ZIP import.
 
 ## Config Handling
 
@@ -145,6 +146,8 @@ After explicit `COPY` confirmation, the tool can:
 * Update the copied footprint visible `Value` field.
 * Add or update a 3D model reference.
 * Add hidden import/review metadata fields.
+* Supports newer KiCad footprint roots using `(footprint ...)`. 
+* Supports older KiCad/vendor footprint roots using `(module ...)` when updating the copied footprint internal name.
 
 Metadata fields currently include:
 
@@ -233,7 +236,6 @@ Normal output is intentionally limited to user decisions, safety confirmations, 
 
 The tool currently does not:
 
-* import loose `.kicad_sym`, `.kicad_mod`, `.step`, or `.stp` files directly
 * import from a loose folder of files
 * perform partial imports intentionally
 * link an existing symbol to a newly imported footprint
@@ -257,7 +259,6 @@ Human review is still required.
 Planned near-term work:
 
 * Continue polishing normal/debug output boundaries as new workflow stages are added.
-* Add loose-file import support.
 * Add partial import support.
 * Add workflows for linking existing symbols/models to newly imported footprints.
 

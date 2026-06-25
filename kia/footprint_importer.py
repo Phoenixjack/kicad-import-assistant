@@ -205,32 +205,48 @@ def update_footprint_internal_name(
     """
     Update the copied footprint's internal name.
 
-    Supports both newer quoted KiCad syntax:
+    Supports newer KiCad syntax:
       (footprint "Old_Name"
-
-    and older/unquoted vendor syntax:
       (footprint Old_Name
+
+    Supports older KiCad/vendor syntax:
+      (module "Old_Name"
+      (module Old_Name
     """
     text = footprint_path.read_text(encoding="utf-8")
 
-    # Quoted form
-    updated_text, replacement_count = re.subn(
-        pattern=r'^(\s*\(footprint\s+)"[^"]+"',
-        repl=rf'\1"{basename}"',
-        string=text,
-        count=1,
-        flags=re.MULTILINE,
-    )
+    patterns = [
+        # Newer quoted footprint form:
+        #   (footprint "Old_Name"
+        r'^(\s*\(footprint\s+)"[^"]+"',
 
-    # Older/unquoted form
-    if replacement_count == 0:
+        # Newer unquoted footprint form:
+        #   (footprint Old_Name
+        r'^(\s*\(footprint\s+)([^\s\)]+)',
+
+        # Older quoted module form:
+        #   (module "Old_Name"
+        r'^(\s*\(module\s+)"[^"]+"',
+
+        # Older unquoted module form:
+        #   (module Old_Name
+        r'^(\s*\(module\s+)([^\s\)]+)',
+    ]
+
+    updated_text = text
+    replacement_count = 0
+
+    for pattern in patterns:
         updated_text, replacement_count = re.subn(
-            pattern=r'^(\s*\(footprint\s+)([^\s\)]+)',
+            pattern=pattern,
             repl=rf'\1"{basename}"',
             string=text,
             count=1,
             flags=re.MULTILINE,
         )
+
+        if replacement_count == 1:
+            break
 
     if replacement_count != 1:
         print()
@@ -241,15 +257,19 @@ def update_footprint_internal_name(
         print('  (footprint "Old_Name"')
         print("or:")
         print("  (footprint Old_Name")
+        print("or legacy KiCad/vendor syntax like:")
+        print('  (module "Old_Name"')
+        print("or:")
+        print("  (module Old_Name")
         return False
 
     footprint_path.write_text(updated_text, encoding="utf-8")
 
-    dbg_blank(Severity.VERBOSE, "importer", "footprint_name", "footprint_importer")
-    dbg_print("Updated footprint internal name:", Severity.VERBOSE, "importer", "footprint_name", "footprint_importer")
-    dbg_print(f"Footprint: {footprint_path.name}", Severity.VERBOSE, "importer", "footprint_name", "footprint_importer")
-    dbg_print(f"Name: {basename}", Severity.VERBOSE, "importer", "footprint_name", "footprint_importer")
-    
+    dbg_blank(Severity.VERBOSE, "importer", "fp_name", "footprint_importer")
+    dbg_print("Updated footprint internal name:", Severity.VERBOSE, "importer", "fp_name", "footprint_importer")
+    dbg_print(f"Footprint: {footprint_path.name}", Severity.VERBOSE, "importer", "fp_name", "footprint_importer")
+    dbg_print(f"Name: {basename}", Severity.VERBOSE, "importer", "fp_name", "footprint_importer")
+
     return True
 
 
