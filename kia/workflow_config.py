@@ -31,6 +31,13 @@ DEFAULT_CONFIG = {
     },
     "path_variable": "CHRIS_KICAD_LIB",
     "keep_temp_files": False,
+    "source_cleanup": {
+        "prompt_after_success": True,
+        "mode": "archive",
+        "archive_folder_name": "_imported",
+          "archive_loose_files": true,
+          "archive_zip_files": true,
+    },
     "libraries": {
         "CONNECTORS": {
             "prefix": "CONN",

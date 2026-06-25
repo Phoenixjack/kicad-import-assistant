@@ -73,6 +73,9 @@ from kia.workflow_symbol import (
     backup_target_symbol_library, 
     merge_symbol_preview_stage,
 )
+from kia.workflow_source_cleanup import (
+    archive_successful_source_files,
+)
 from kia.workflow_final import (
     print_final_import_summary, 
     ensure_finalization_state,
@@ -153,6 +156,10 @@ def main() -> None:
 
     run_state = print_final_import_summary(run_state)
     stop_if_failed(run_state)
+
+    run_state = archive_successful_source_files(run_state)
+    stop_if_failed(run_state)
+
     # END MAIN()
 
 

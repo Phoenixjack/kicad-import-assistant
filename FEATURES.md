@@ -210,6 +210,37 @@ After successful import, the tool can:
 * Preserve the temporary extraction folder when `keep_temp_files` is true.
 * Print a final import summary.
 
+
+## Source File Cleanup
+
+After a successful loose-file import, the tool can optionally move the original selected source files into an archive folder.
+
+Current behavior:
+
+* Applies only to loose-file imports.
+* Does not apply to ZIP imports.
+* Prompts the user after successful import.
+* Defaults to `N`.
+* Moves files into an `_imported` folder beside the original source files.
+* Avoids overwriting existing archived files by adding a timestamp when needed.
+* Leaves files in place when the user declines.
+
+Example:
+
+```text
+kia_testing/
+├─ SS-53000-003.kicad_mod
+├─ SS-53000-003.kicad_sym
+├─ SS-53000-003.step
+└─ _imported/
+   ├─ SS-53000-003.20260625_133138.kicad_mod
+   ├─ SS-53000-003.20260625_133138.kicad_sym
+   └─ SS-53000-003.20260625_133138.step
+````
+
+Source cleanup is intentionally conservative. It moves files to an archive folder; it does not permanently delete them.
+
+
 ## Debug Output
 
 The tool has a lightweight developer/debug output system.
@@ -236,6 +267,8 @@ Normal output is intentionally limited to user decisions, safety confirmations, 
 
 The tool currently does not:
 
+* permanently delete imported source files
+* archive ZIP sources after import
 * import from a loose folder of files
 * perform partial imports intentionally
 * link an existing symbol to a newly imported footprint

@@ -61,6 +61,9 @@ KiCad Import Assistant can currently:
 * Save successful run state back to config.
 * Clean up temporary extraction folders when `keep_temp_files` is false.
 * Print a final import summary.
+* Offer to archive original source files after successful import. 
+* Move archived source files into a local `_imported` folder. 
+* Avoid overwriting archived source files by adding timestamped filenames when needed.
 
 More detailed feature notes are available in [`FEATURES.md`](FEATURES.md).
 
@@ -118,6 +121,8 @@ Before merging a symbol, it checks whether the generated symbol already exists i
 Before modifying a target `.kicad_sym` library, it creates a timestamped backup file.
 
 Temp folders are deleted after successful completion when `keep_temp_files` is false. When `keep_temp_files` is true, the temp folder is preserved for review/debugging.
+
+The tool can optionally move the original selected source files into an `_imported` archive folder after successful import.
 
 Even with these safeguards, this is still early-development software. Back up your KiCad libraries before testing it against production libraries.
 

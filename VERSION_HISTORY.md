@@ -1,5 +1,32 @@
 # Version History
 
+## Unreleased - V0.12.0 Archive Imported Source Files
+
+Feature branch: `feature/archive-imported-source-files`
+
+Adds optional post-import archiving for import sources.
+
+Changes:
+
+* Adds optional archive prompt after successful imports.
+* Moves original selected source files into an `_imported` archive folder when the user confirms.
+* Defaults the archive prompt to `N` so source files are not moved by accidental Enter.
+* Avoids overwriting archived source files by adding a timestamp when the destination filename already exists.
+* Records archived, skipped, and failed source-cleanup files in `run_state`.
+* Keeps source cleanup separate from the core import result; a source archive issue does not retroactively fail a successful import.
+
+Tested:
+
+* Import with archive declined leaves source files in place.
+* Import with archive accepted moves source files into `_imported`.
+* Archive filename collision uses timestamped destination filenames.
+* Missing source file during archive is skipped without critical failure.
+
+Current limitations:
+
+* Source cleanup does not hard-delete files.
+
+
 ## Unreleased - V0.11.0 Loose-File Import Branch
 
 Feature branch: `feature/loose-file-import`

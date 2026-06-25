@@ -42,6 +42,17 @@ def initialize_run_state() -> dict:
             "suggestion_rules": None,
         },
 
+        "source_cleanup": {
+            "attempted": False,
+            "offered": False,
+            "user_confirmed": False,
+            "mode": "archive",
+            "archive_dir": None,
+            "archived_files": [],
+            "skipped_files": [],
+            "failed_files": [],
+        },
+
         "capabilities": {
             "has_footprint": False,
             "has_symbol": False,
