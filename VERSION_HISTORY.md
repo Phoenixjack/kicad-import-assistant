@@ -1,8 +1,8 @@
 # Version History
 
-## Unreleased - V0.10.0 Refactor Branch
+## Unreleased - V0.10.1 Refactor Branch
 
-Breaking refactor work in progress on the `refactor-debug-cleanup` branch.
+Breaking refactor work in progress on the `refactor/quiet-normal-output` branch.
 
 This branch refactors the importer around a staged `run_state` workflow and splits many workflow-stage functions out of `kicad_import_assistant.py`.
 
@@ -12,6 +12,11 @@ Current status:
 
 Completed in this branch so far:
 
+* Reduces normal workflow output by moving successful stage-detail chatter behind `dbg_print()`. 
+* Keeps prompts, confirmations, warnings/errors, import-plan review, config-save status, and final summary visible. 
+* Reclassifies duplicate target-file overwrite protection as a controlled warning stop instead of a critical error. 
+* Fixes final summary symbol reporting so successfully merged symbols are not displayed as `SKIPPED`. 
+* Updates debug label width to 9 characters to reduce truncation while keeping debug prefixes compact.
 * Adds `kia/run_state.py`.
 * Adds `initialize_run_state()` as the central per-import workflow state initializer.
 * Adds staged status handling through `kia/workflow_status.py`.
@@ -74,7 +79,6 @@ Completed in this branch so far:
 
 Current intentional limitations:
 
-* Normal output is still verbose and should be reduced in a follow-on cleanup branch.
 * Loose-file imports are not active yet.
 * Partial imports are not active yet.
 * Existing-symbol/existing-model linking workflows are not active yet.

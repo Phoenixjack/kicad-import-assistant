@@ -9,7 +9,7 @@ Source gives optional module/source detail.
 
 from enum import IntEnum
 
-DEBUG_LABEL_WIDTH = 8
+DEBUG_LABEL_WIDTH = 9
 
 class Severity(IntEnum):
     ERROR = 1       # Something failed or the user must fix something.

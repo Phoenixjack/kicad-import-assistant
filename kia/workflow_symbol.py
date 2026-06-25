@@ -9,7 +9,7 @@ kia/workflow_symbol.py
 from pathlib import Path
 
 from kia.app_info import APP_VERSION
-from kia.debug import Severity
+from kia.debug import dbg_blank, dbg_print, Severity
 from kia.workflow_status import mark_success, mark_failure
 from kia.symbol_editor import (
     create_symbol_preview_file,
@@ -48,9 +48,9 @@ def create_symbol_preview_stage(run_state: dict) -> dict:
     source_symbol = run_state["import_plan"]["symbol"].get("source_path")
 
     if source_symbol is None:
-        print()
-        print("Symbol preview skipped.")
-        print("  No symbol was selected for import.")
+        dbg_blank(Severity.INFO, "symbols", "preview", "workflow_symbol")
+        dbg_print("Symbol preview skipped.", Severity.INFO, "symbols", "preview", "workflow_symbol")
+        dbg_print("No symbol was selected for import.", Severity.INFO, "symbols", "preview", "workflow_symbol")
 
         run_state["symbol_preview"]["complete"] = True
 
@@ -178,26 +178,24 @@ def create_symbol_preview_stage(run_state: dict) -> dict:
     run_state["symbol_preview"]["complete"] = True
     run_state["import_plan"]["symbol"]["action"] = "PREVIEW_READY"
 
-    print()
-    print("Symbol preview:")
-    print(f"  Source: {preview_result.get('source_symbol')}")
-    print(f"  Preview: {preview_result.get('preview_symbol')}")
-    print(f"  Old symbol name: {preview_result.get('old_symbol_name')}")
-    print(f"  New symbol name: {preview_result.get('new_symbol_name')}")
-    print(f"  Footprint property: {preview_result.get('footprint_property')}")
-    print(f"  Symbol name updated: {preview_result.get('symbol_name_updated')}")
-    print(f"  Footprint property updated: {preview_result.get('footprint_property_updated')}")
-    print(f"  Metadata added: {preview_result.get('metadata_added')}")
+    dbg_blank(Severity.INFO, "symbols", "preview", "workflow_symbol")
+    dbg_print("Symbol preview:", Severity.INFO, "symbols", "preview", "workflow_symbol")
+    dbg_print(f"Source: {preview_result.get('source_symbol')}", Severity.INFO, "symbols", "preview", "workflow_symbol")
+    dbg_print(f"Preview: {preview_result.get('preview_symbol')}", Severity.INFO, "symbols", "preview", "workflow_symbol")
+    dbg_print(f"Old symbol name: {preview_result.get('old_symbol_name')}", Severity.INFO, "symbols", "preview", "workflow_symbol")
+    dbg_print(f"New symbol name: {preview_result.get('new_symbol_name')}", Severity.INFO, "symbols", "preview", "workflow_symbol")
+    dbg_print(f"Footprint property: {preview_result.get('footprint_property')}", Severity.INFO, "symbols", "preview", "workflow_symbol")
+    dbg_print(f"Symbol name updated: {preview_result.get('symbol_name_updated')}", Severity.INFO, "symbols", "preview", "workflow_symbol")
+    dbg_print(f"Footprint property updated: {preview_result.get('footprint_property_updated')}", Severity.INFO, "symbols", "preview", "workflow_symbol")
+    dbg_print(f"Metadata added: {preview_result.get('metadata_added')}", Severity.INFO, "symbols", "preview", "workflow_symbol")
 
-    print()
-    print("Symbol merge precheck:")
-    print(f"  Target symbol file exists: {merge_precheck.get('target_symbol_file_exists')}")
-    print(f"  Target symbol already exists: {merge_precheck.get('target_symbol_already_exists')}")
-    print(f"  Merge precheck passed: {merge_precheck.get('symbol_merge_precheck_passed')}")
-    print(f"  Reason: {merge_precheck.get('reason')}")
-
-    print()
-    print("Target symbol library was not modified.")
+    dbg_blank(Severity.INFO, "symbols", "precheck", "workflow_symbol")
+    dbg_print("Symbol merge precheck:", Severity.INFO, "symbols", "precheck", "workflow_symbol")
+    dbg_print(f"Target symbol file exists: {merge_precheck.get('target_symbol_file_exists')}", Severity.INFO, "symbols", "precheck", "workflow_symbol")
+    dbg_print(f"Target symbol already exists: {merge_precheck.get('target_symbol_already_exists')}", Severity.INFO, "symbols", "precheck", "workflow_symbol")
+    dbg_print(f"Merge precheck passed: {merge_precheck.get('symbol_merge_precheck_passed')}", Severity.INFO, "symbols", "precheck", "workflow_symbol")
+    dbg_print(f"Reason: {merge_precheck.get('reason')}", Severity.INFO, "symbols", "precheck", "workflow_symbol")
+    dbg_print("Target symbol library was not modified.", Severity.INFO, "symbols", "precheck", "workflow_symbol")
 
     return mark_success(
         run_state,
@@ -231,9 +229,9 @@ def confirm_symbol_merge_execution(run_state: dict) -> dict:
     basename = run_state["import_plan"].get("basename")
 
     if preview_symbol_file is None:
-        print()
-        print("Symbol merge skipped.")
-        print("  No symbol preview exists.")
+        dbg_blank(Severity.INFO, "symbols", "merge", "workflow_symbol")
+        dbg_print("Symbol merge skipped.", Severity.INFO, "symbols", "merge", "workflow_symbol")
+        dbg_print("No symbol preview exists.", Severity.INFO, "symbols", "merge", "workflow_symbol")
 
         run_state["symbol_merge"]["complete"] = True
 
@@ -374,10 +372,10 @@ def backup_target_symbol_library(run_state: dict) -> dict:
     run_state["symbol_merge"]["backup_path"] = backup_path
     run_state["symbol"]["library_backed_up"] = True
 
-    print()
-    print("Symbol library backup created:")
-    print(f"  Target: {target_symbol_file}")
-    print(f"  Backup: {backup_path}")
+    dbg_blank(Severity.INFO, "symbols", "backup", "workflow_symbol")
+    dbg_print("Symbol library backup created:", Severity.INFO, "symbols", "backup", "workflow_symbol")
+    dbg_print(f"Target: {target_symbol_file}", Severity.INFO, "symbols", "backup", "workflow_symbol")
+    dbg_print(f"Backup: {backup_path}", Severity.INFO, "symbols", "backup", "workflow_symbol")
 
     return mark_success(
         run_state,
@@ -498,20 +496,13 @@ def merge_symbol_preview_stage(run_state: dict) -> dict:
             severity=Severity.ERROR,
         )
 
-    run_state["symbol_merge"]["complete"] = True
-    run_state["symbol_merge"]["attempted"] = True
-    run_state["symbol"]["merged"] = True
-    run_state["import_plan"]["symbol"]["action"] = "MERGED"
-
-    print()
-    print("Symbol merge:")
-    print(f"  Preview: {preview_symbol_file}")
-    print(f"  Target:  {target_symbol_file}")
-    print(f"  Symbol:  {basename}")
-    print(f"  Result:  {merge_result.get('symbol_merge_reason')}")
-    print()
-    print("Symbol library backup:")
-    print(f"  Backup: {run_state['symbol_merge']['backup_path']}")
+    dbg_blank(Severity.INFO, "symbols", "merge", "workflow_symbol")
+    dbg_print("Symbol merge:", Severity.INFO, "symbols", "merge", "workflow_symbol")
+    dbg_print(f"Preview: {preview_symbol_file}", Severity.INFO, "symbols", "merge", "workflow_symbol")
+    dbg_print(f"Target: {target_symbol_file}", Severity.INFO, "symbols", "merge", "workflow_symbol")
+    dbg_print(f"Symbol: {basename}", Severity.INFO, "symbols", "merge", "workflow_symbol")
+    dbg_print(f"Result: {merge_result.get('symbol_merge_reason')}", Severity.INFO, "symbols", "merge", "workflow_symbol")
+    dbg_print(f"Backup: {run_state['symbol_merge']['backup_path']}", Severity.INFO, "symbols", "merge", "workflow_symbol")
 
     return mark_success(
         run_state,

@@ -41,7 +41,16 @@ def print_final_import_summary(run_state: dict) -> dict:
     else:
         print("  3D model:  SKIPPED")
 
-    if run_state["symbol"].get("merged"):
+    symbol_merge_result = run_state["symbol_merge"].get("merge_result") or {}
+
+    symbol_was_merged = (
+        run_state["symbol"].get("merged")
+        or symbol_merge_result.get("symbol_merged")
+        or run_state["symbol_merge"].get("complete")
+        or run_state["import_plan"]["symbol"].get("action") == "MERGED"
+    )
+
+    if symbol_was_merged:
         print(f"  Symbol:    {target_symbol_file}")
     else:
         print("  Symbol:    SKIPPED")

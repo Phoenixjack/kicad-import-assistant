@@ -2,7 +2,7 @@
 
 This file describes the current capabilities and known limitations of KiCad Import Assistant.
 
-Current version: **Unreleased V0.10.0 refactor branch**
+Current version: **Unreleased V0.10.1 refactor branch**
 
 Branch: `refactor-debug-cleanup`
 
@@ -227,7 +227,7 @@ INFO
 VERBOSE
 ```
 
-Future work will continue moving normal runtime chatter behind `dbg_print()` so normal output becomes shorter while debug output remains available when needed.
+Normal output is intentionally limited to user decisions, safety confirmations, warnings/errors, import-plan review, config-save status, and the final import summary. Detailed stage diagnostics are routed through `dbg_print()` and can be enabled by debug category when needed.
 
 ## Current Limitations
 
@@ -256,8 +256,7 @@ Human review is still required.
 
 Planned near-term work:
 
-* Reduce normal output verbosity.
-* Move additional diagnostic output behind `dbg_print()`.
+* Continue polishing normal/debug output boundaries as new workflow stages are added.
 * Add loose-file import support.
 * Add partial import support.
 * Add workflows for linking existing symbols/models to newly imported footprints.

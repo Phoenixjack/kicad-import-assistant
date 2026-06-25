@@ -9,7 +9,7 @@ import shutil
 from pathlib import Path
 
 from kia.app_info import APP_VERSION
-from kia.debug import Severity
+from kia.debug import dbg_blank, dbg_print, Severity
 from kia.workflow_status import mark_success, mark_failure
 from kia.footprint_importer import (
     build_kicad_model_path,
@@ -92,7 +92,7 @@ def copy_planned_footprint_and_model_files(run_state: dict) -> dict:
             step="copy_planned_files",
             function_name="copy_planned_footprint_and_model_files",
             failure_reason="Cannot copy files because file copy was not confirmed.",
-            severity=Severity.ERROR,
+            severity=Severity.WARNING,
         )
 
     if not run_state["import_plan"]["is_complete"]:
@@ -193,21 +193,33 @@ def copy_planned_footprint_and_model_files(run_state: dict) -> dict:
     run_state["copied_files"] = copied_files
     run_state["files_copied"] = len(copied_files) > 0
 
-    print()
-    print("Copied files:")
+    dbg_blank(Severity.INFO, "importer", "copy", "workflow_footprint")
+    dbg_print("Copied files:", Severity.INFO, "importer", "copy", "workflow_footprint")
 
     if not copied_files:
-        print("  No footprint/model files were selected for copy.")
+        dbg_print(
+            "No footprint/model files were selected for copy.",
+            Severity.INFO,
+            "importer",
+            "copy",
+            "workflow_footprint",
+        )
     else:
         for copied_file in copied_files:
-            print(f"  {copied_file['type']}:")
-            print(f"    Source: {copied_file['source']}")
-            print(f"    Target: {copied_file['target']}")
+            dbg_print(f"{copied_file['type']}:", Severity.INFO, "importer", "copy", "workflow_footprint")
+            dbg_print(f"Source: {copied_file['source']}", Severity.INFO, "importer", "copy", "workflow_footprint")
+            dbg_print(f"Target: {copied_file['target']}", Severity.INFO, "importer", "copy", "workflow_footprint")
 
     if run_state["import_plan"]["symbol"]["source_path"] is not None:
-        print()
-        print("Symbol merge skipped for this checkpoint.")
-        print(f"  Pending target: {run_state['import_plan']['symbol']['target_path']}")
+        dbg_blank(Severity.INFO, "importer", "copy", "workflow_footprint")
+        dbg_print("Symbol merge still pending.", Severity.INFO, "importer", "copy", "workflow_footprint")
+        dbg_print(
+            f"Pending target: {run_state['import_plan']['symbol']['target_path']}",
+            Severity.INFO,
+            "importer",
+            "copy",
+            "workflow_footprint",
+        )
 
     return mark_success(
         run_state,
@@ -257,9 +269,9 @@ def update_copied_footprint_contents(run_state: dict) -> dict:
     library_settings = run_state["profile"]["settings"]
 
     if target_footprint is None:
-        print()
-        print("Footprint content update skipped.")
-        print("  No footprint was selected for import.")
+        dbg_blank(Severity.INFO, "importer", "footprint", "workflow_footprint")
+        dbg_print("Footprint content update skipped.", Severity.INFO, "importer", "footprint", "workflow_footprint")
+        dbg_print("No footprint was selected for import.", Severity.INFO, "importer", "footprint", "workflow_footprint")
 
         run_state["footprint_update"]["complete"] = True
 
@@ -350,9 +362,9 @@ def update_copied_footprint_contents(run_state: dict) -> dict:
             update_errors.append("Footprint 3D model reference was not updated or added.")
 
     else:
-        print()
-        print("Footprint 3D model reference update skipped.")
-        print("  No model file was selected for import.")
+        dbg_blank(Severity.INFO, "importer", "model", "workflow_footprint")
+        dbg_print("Footprint 3D model reference update skipped.", Severity.INFO, "importer", "model", "workflow_footprint")
+        dbg_print("No model file was selected for import.", Severity.INFO, "importer", "model", "workflow_footprint")
 
     metadata_added = add_import_metadata_properties(
         footprint_path=target_footprint,
@@ -387,23 +399,41 @@ def update_copied_footprint_contents(run_state: dict) -> dict:
     if target_model is not None:
         run_state["import_plan"]["model"]["action"] = "COPIED_REFERENCED"
 
-    print()
-    print("Footprint content updates:")
-    print(f"  Footprint: {target_footprint.name}")
-    print(f"  Internal name updated: {internal_name_updated}")
-    print(f"  Value updated: {value_updated}")
+    dbg_blank(Severity.INFO, "importer", "footprint", "workflow_footprint")
+    dbg_print("Footprint content updates:", Severity.INFO, "importer", "footprint", "workflow_footprint")
+    dbg_print(f"Footprint: {target_footprint.name}", Severity.INFO, "importer", "footprint", "workflow_footprint")
+    dbg_print(f"Internal name updated: {internal_name_updated}", Severity.INFO, "importer", "footprint", "workflow_footprint")
+    dbg_print(f"Value updated: {value_updated}", Severity.INFO, "importer", "footprint", "workflow_footprint")
 
     if target_model is not None:
-        print(f"  Model reference updated: {run_state['footprint_update']['model_reference_updated']}")
-        print(f"  Model reference added: {run_state['footprint_update']['model_reference_added']}")
-        print(f"  Model path: {model_path_in_kicad}")
+        dbg_print(
+            f"Model reference updated: {run_state['footprint_update']['model_reference_updated']}",
+            Severity.INFO,
+            "importer",
+            "footprint",
+            "workflow_footprint",
+        )
+        dbg_print(
+            f"Model reference added: {run_state['footprint_update']['model_reference_added']}",
+            Severity.INFO,
+            "importer",
+            "footprint",
+            "workflow_footprint",
+        )
+        dbg_print(f"Model path: {model_path_in_kicad}", Severity.INFO, "importer", "footprint", "workflow_footprint")
 
-    print(f"  Metadata added: {metadata_added}")
+    dbg_print(f"Metadata added: {metadata_added}", Severity.INFO, "importer", "footprint", "workflow_footprint")
 
     if run_state["import_plan"]["symbol"]["source_path"] is not None:
-        print()
-        print("Symbol merge still pending.")
-        print(f"  Pending target: {run_state['import_plan']['symbol']['target_path']}")
+        dbg_blank(Severity.INFO, "importer", "footprint", "workflow_footprint")
+        dbg_print("Symbol merge still pending.", Severity.INFO, "importer", "footprint", "workflow_footprint")
+        dbg_print(
+            f"Pending target: {run_state['import_plan']['symbol']['target_path']}",
+            Severity.INFO,
+            "importer",
+            "footprint",
+            "workflow_footprint",
+        )
 
     return mark_success(
         run_state,

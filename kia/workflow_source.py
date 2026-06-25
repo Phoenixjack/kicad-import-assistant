@@ -5,7 +5,11 @@ kia/workflow_source.py
   cleanup_import_temp_files()
 """
 
-from kia.debug import Severity
+from kia.debug import (
+    dbg_blank,
+    dbg_print, 
+    Severity, 
+)
 from kia.workflow_status import mark_success, mark_failure
 from kia.source_scan import (
     extract_zip_to_temp,
@@ -133,12 +137,12 @@ def discover_source_files(run_state: dict) -> dict:
     run_state["symbol"]["exists_in_source"] = bool(symbols)
     run_state["model"]["exists_in_source"] = bool(models)
 
-    print()
-    print("Source discovery summary:")
-    print(f"  Footprints: {len(footprints)}")
-    print(f"  Symbols: {len(symbols)}")
-    print(f"  Models: {len(models)}")
-    print(f"  Other files: {len(other)}")
+    dbg_blank(Severity.INFO, "source", "discover", "workflow_source")
+    dbg_print("Source discovery summary:", Severity.INFO, "source", "discover", "workflow_source")
+    dbg_print(f"Footprints: {len(footprints)}", Severity.INFO, "source", "discover", "workflow_source")
+    dbg_print(f"Symbols: {len(symbols)}", Severity.INFO, "source", "discover", "workflow_source")
+    dbg_print(f"Models: {len(models)}", Severity.INFO, "source", "discover", "workflow_source")
+    dbg_print(f"Other files: {len(other)}", Severity.INFO, "source", "discover", "workflow_source")
 
     return mark_success(
         run_state,
@@ -166,7 +170,6 @@ def cleanup_import_temp_files(run_state: dict) -> dict:
     run_state = ensure_finalization_state(run_state)
     config = run_state["config"]["general_config"]
     temp_folder = run_state["import_plan"].get("temp_folder_path")
-    manifest_path = run_state["import_plan"].get("manifest_path")
 
     keep_temp_files = bool(config.get("keep_temp_files", False))
 
@@ -201,21 +204,21 @@ def cleanup_import_temp_files(run_state: dict) -> dict:
     run_state["finalization"]["temp_cleanup_performed"] = cleanup_performed
     run_state["finalization"]["temp_cleanup_skipped_reason"] = skipped_reason
 
-    print()
-    print("Temp folder cleanup:")
+    dbg_blank(Severity.INFO, "source", "cleanup", "workflow_source")
+    dbg_print("Temp folder cleanup:", Severity.INFO, "source", "cleanup", "workflow_source")
 
     if cleanup_performed:
-        print("  Deleted temp folder.")
-        print(f"  Temp folder: {temp_folder}")
+        dbg_print("Deleted temp folder.", Severity.INFO, "source", "cleanup", "workflow_source")
+        dbg_print(f"Temp folder: {temp_folder}", Severity.INFO, "source", "cleanup", "workflow_source")
 
     elif skipped_reason:
-        print("  Preserved temp folder.")
-        print(f"  Reason: {skipped_reason}")
-        print(f"  Temp folder: {temp_folder}")
+        dbg_print("Preserved temp folder.", Severity.INFO, "source", "cleanup", "workflow_source")
+        dbg_print(f"Reason: {skipped_reason}", Severity.INFO, "source", "cleanup", "workflow_source")
+        dbg_print(f"Temp folder: {temp_folder}", Severity.INFO, "source", "cleanup", "workflow_source")
 
     else:
-        print("  Temp folder cleanup was skipped or not needed.")
-        print(f"  Temp folder: {temp_folder}")
+        dbg_print("Temp folder cleanup was skipped or not needed.", Severity.INFO, "source", "cleanup", "workflow_source")
+        dbg_print(f"Temp folder: {temp_folder}", Severity.INFO, "source", "cleanup", "workflow_source")
 
     return mark_success(
         run_state,

@@ -6,11 +6,13 @@ The tool is designed around a cautious workflow: preview first, confirm explicit
 
 ## Current Version
 
-**Unreleased V0.10.0 refactor branch**
+**Unreleased V0.10.1 refactor branch**
 
-Current branch: `refactor-debug-cleanup`
+Current development branch: `refactor/quiet-normal-output`
 
-This branch is a breaking refactor of the V0.9 import workflow. It is not yet a tagged stable release.
+* Full clean-library ZIP import smoke test passes. 
+* Duplicate target-file overwrite protection stops safely. 
+* Normal workflow output has been reduced; detailed stage diagnostics are routed through debug output.
 
 ## V0.10 refactor branch note
 
