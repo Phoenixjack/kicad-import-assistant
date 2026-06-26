@@ -160,7 +160,7 @@ def copy_planned_footprint_and_model_files(run_state: dict) -> dict:
                     f"Cannot copy {file_type}; target file already exists.\n"
                     f"Overwrite protection is enabled:\n{target_path}"
                 ),
-                severity=Severity.ERROR,
+                severity=Severity.WARNING,
             )
 
         try:

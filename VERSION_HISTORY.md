@@ -1,5 +1,21 @@
 # Version History
 
+## Unreleased - V0.12.1 Duplicate Target Warning Severity
+
+Fix branch: `fix/duplicate-target-warning-severity`
+
+Changes:
+
+* Reclassifies existing target footprint/model overwrite protection from error severity to warning severity.
+* Keeps overwrite protection behavior unchanged.
+* Prevents intentional duplicate-target stops from being displayed as `CRITICAL ERROR`.
+
+Tested:
+
+* Existing target footprint/model import attempt stops safely with warning severity.
+* No target files are overwritten.
+* No source archive prompt is shown because the import did not complete successfully.
+
 ## Unreleased - V0.12.0 Archive Imported Source Files
 
 Feature branch: `feature/archive-imported-source-files`
