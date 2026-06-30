@@ -68,6 +68,7 @@ def create_symbol_preview_stage(run_state: dict) -> dict:
         dbg_print("No symbol was selected for import.", Severity.INFO, "symbols", "preview", "workflow_symbol")
 
         run_state["symbol_preview"]["complete"] = True
+        run_state["symbol_merge"]["complete"] = True
 
         return mark_success(
             run_state,
@@ -192,6 +193,9 @@ def create_symbol_preview_stage(run_state: dict) -> dict:
 
     run_state["symbol_preview"]["complete"] = True
     run_state["import_plan"]["symbol"]["action"] = "PREVIEW_READY"
+    run_state["symbol_merge"]["preview_symbol_file"] = preview_result.get("preview_symbol")
+    run_state["symbol_merge"]["target_symbol_file"] = target_symbol_file
+    run_state["symbol_merge"]["merged_symbol_name"] = basename
 
     dbg_blank(Severity.INFO, "symbols", "preview", "workflow_symbol")
     dbg_print("Symbol preview:", Severity.INFO, "symbols", "preview", "workflow_symbol")

@@ -1,5 +1,48 @@
 # Version History
 
+## Unreleased - V0.14.0 Simplify Execution Confirmation
+
+Feature branch: `feature/simplify-execution-confirmation`
+
+Replaces the older separate `COPY` and `MERGE` hard-confirmation prompts with one final selected-actions confirmation.
+
+The user still chooses per-item footprint/model/symbol actions first. After import-plan review, the tool summarizes the selected actions and asks for one final confirmation before target-library writes occur.
+
+Changes:
+
+* Adds `kia/workflow_execution.py`.
+* Adds one final selected-actions confirmation stage.
+* Prints selected footprint, model, and symbol actions before writes.
+* Shows source and target paths for selected actions.
+* Replaces the separate `COPY` and `MERGE` user-facing prompts with one `[y/N]` confirmation.
+* Updates main workflow orchestration to call the final execution confirmation once after import-plan review.
+* Keeps footprint/model overwrite protection unchanged.
+* Keeps timestamped symbol-library backup behavior unchanged.
+* Keeps per-item skipped-action behavior unchanged.
+* Allows symbol merge state to be populated by the symbol preview stage instead of the old `MERGE` confirmation stage.
+* Ensures no selected writes occur when the final confirmation is declined.
+* Updates README and FEATURES documentation for the new confirmation flow.
+
+Tested:
+
+* Full import with footprint, model, and symbol kept.
+* Import with model skipped and footprint/symbol kept.
+* Symbol-only merge with footprint/model skipped.
+* Footprint/model import with symbol skipped.
+* Final confirmation declined before writes.
+* No `COPY` prompt appears.
+* No `MERGE` prompt appears.
+* Symbol merge still creates a timestamped backup.
+* Source archive prompt still includes only source files for actions that actually ran.
+* Skipped source files are left in place.
+
+Current limitations:
+
+* Per-item overwrite is not active yet.
+* Symbol replacement is not active yet.
+* Existing footprint/model targets can be skipped, but not overwritten.
+* Missing target symbol libraries are not auto-created yet.
+
 ## Unreleased - V0.13.0 Per-Item Skip Actions
 
 Feature branch: `feature/per-item-skip-actions`

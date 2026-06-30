@@ -43,6 +43,9 @@ from kia.workflow_config import (
     load_runtime_config, 
     save_successful_config_state, 
 )
+from kia.workflow_execution import (
+    confirm_selected_import_actions,
+)
 from kia.workflow_input import (
     collect_and_validate_user_input, 
     resolve_target_library, 
@@ -64,13 +67,11 @@ from kia.workflow_plan import (
     review_import_plan,
 )
 from kia.workflow_footprint import (
-    confirm_file_copy_execution, 
     copy_planned_footprint_and_model_files, 
     update_copied_footprint_contents,
 )
 from kia.workflow_symbol import (
     create_symbol_preview_stage,
-    confirm_symbol_merge_execution, 
     backup_target_symbol_library, 
     merge_symbol_preview_stage,
 )
@@ -131,7 +132,7 @@ def main() -> None:
     run_state = review_import_plan(run_state)
     stop_if_failed(run_state)
 
-    run_state = confirm_file_copy_execution(run_state)
+    run_state = confirm_selected_import_actions(run_state)
     stop_if_failed(run_state)
 
     run_state = copy_planned_footprint_and_model_files(run_state)
@@ -141,9 +142,6 @@ def main() -> None:
     stop_if_failed(run_state)
 
     run_state = create_symbol_preview_stage(run_state)
-    stop_if_failed(run_state)
-
-    run_state = confirm_symbol_merge_execution(run_state)
     stop_if_failed(run_state)
 
     run_state = backup_target_symbol_library(run_state)
