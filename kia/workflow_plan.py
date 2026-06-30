@@ -160,6 +160,145 @@ def create_import_plan(run_state: dict) -> dict:
     )
 
 
+def prompt_import_plan_item_choice(
+    file_type: str,
+    plan_item: dict,
+) -> str:
+    """
+    Ask whether to keep or skip one planned import action.
+
+    Returns:
+      "keep"
+      "skip"
+      "stop"
+    """
+    source_path = plan_item.get("source_path")
+    target_path = plan_item.get("target_path")
+    action = plan_item.get("action")
+
+    if source_path is None:
+        return "skip"
+
+    print()
+    print(f"{file_type.upper()}:")
+    print(f"  Source: {source_path}")
+    print(f"  Target: {target_path}")
+    print(f"  Planned action: {action}")
+
+    target_exists = target_path is not None and target_path.exists()
+    
+    if file_type == "symbol" and not target_exists:
+        print()
+        print("  Target symbol library does not exist.")
+        print("  Symbol merge is not supported unless the target symbol library already exists.")
+        print("  Auto-creating missing symbol libraries is planned for a future branch.")
+
+        response = input("Skip symbol? [Y/n]: ").strip().lower()
+
+        if response in ["", "y", "yes"]:
+            return "skip"
+
+        return "stop"
+
+    if file_type in ["footprint", "model"] and target_exists:
+        print()
+        print("  Target already exists.")
+        print("  Overwrite is not supported in this version.")
+
+        response = input(f"Skip {file_type}? [Y/n]: ").strip().lower()
+
+        if response in ["", "y", "yes"]:
+            return "skip"
+
+        return "stop"
+
+    if file_type == "symbol":
+        response = input("Merge symbol? [Y/n]: ").strip().lower()
+    else:
+        response = input(f"Import {file_type}? [Y/n]: ").strip().lower()
+
+    if response in ["", "y", "yes"]:
+        return "keep"
+
+    if response in ["n", "no", "s", "skip"]:
+        return "skip"
+
+    return "stop"
+
+
+def apply_import_plan_action_choices(run_state: dict) -> dict:
+    """
+    Let the user keep or skip individual planned import actions.
+
+    This does not add overwrite support.
+    Existing footprint/model targets can only be skipped or stop the run.
+    """
+    if not run_state["import_plan"]["is_complete"]:
+        return mark_failure(
+            run_state,
+            script="kicad_import_assistant.py",
+            step="apply_import_plan_action_choices",
+            function_name="apply_import_plan_action_choices",
+            failure_reason="Cannot choose item actions because the import plan is not complete.",
+            severity=Severity.ERROR,
+        )
+
+    print()
+    print("Choose import actions:")
+    print("  This version supports Import/Merge or Skip.")
+    print("  Overwrite/replace actions are not active yet.")
+
+    kept_count = 0
+
+    for file_type in ["footprint", "model", "symbol"]:
+        plan_item = run_state["import_plan"][file_type]
+
+        if plan_item.get("source_path") is None:
+            continue
+
+        choice = prompt_import_plan_item_choice(
+            file_type=file_type,
+            plan_item=plan_item,
+        )
+
+        if choice == "keep":
+            kept_count += 1
+            continue
+
+        if choice == "skip":
+            plan_item["action"] = "SKIPPED_BY_USER"
+            run_state["import_plan"]["selected_files"][file_type] = None
+            run_state[file_type]["user_chose_import"] = False
+            continue
+
+        return mark_failure(
+            run_state,
+            script="kicad_import_assistant.py",
+            step="apply_import_plan_action_choices",
+            function_name="apply_import_plan_action_choices",
+            failure_reason=f"Import stopped while choosing action for {file_type}.",
+            severity=Severity.INFO,
+        )
+
+    if kept_count == 0:
+        return mark_failure(
+            run_state,
+            script="kicad_import_assistant.py",
+            step="apply_import_plan_action_choices",
+            function_name="apply_import_plan_action_choices",
+            failure_reason="All planned import actions were skipped.",
+            severity=Severity.INFO,
+        )
+
+    return mark_success(
+        run_state,
+        script="kicad_import_assistant.py",
+        step="apply_import_plan_action_choices",
+        function_name="apply_import_plan_action_choices",
+        message="Import plan action choices applied.",
+    )
+
+
 def review_import_plan(run_state: dict) -> dict:
     """
     Owns:

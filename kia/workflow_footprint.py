@@ -20,6 +20,24 @@ from kia.footprint_importer import (
 )
 
 
+def has_pending_file_copy_actions(run_state: dict) -> bool:
+    """
+    Return True if footprint/model copy actions remain after per-item choices.
+    """
+    for file_type in ["footprint", "model"]:
+        plan_item = run_state["import_plan"].get(file_type, {})
+
+        if plan_item.get("source_path") is None:
+            continue
+
+        if plan_item.get("action") == "SKIPPED_BY_USER":
+            continue
+
+        return True
+
+    return False
+
+
 def confirm_file_copy_execution(run_state: dict) -> dict:
     """
     Owns:
@@ -39,6 +57,18 @@ def confirm_file_copy_execution(run_state: dict) -> dict:
             function_name="confirm_file_copy_execution",
             failure_reason="Cannot confirm file copy because the import plan is not complete.",
             severity=Severity.WARNING,
+        )
+
+    if not has_pending_file_copy_actions(run_state):
+        run_state["file_copy"]["user_confirmed"] = False
+        run_state["file_copy"]["complete"] = True
+
+        return mark_success(
+            run_state,
+            script="kicad_import_assistant.py",
+            step="confirm_file_copy_execution",
+            function_name="confirm_file_copy_execution",
+            message="File copy confirmation skipped because no footprint/model copy actions remain.",
         )
 
     print()
@@ -85,6 +115,22 @@ def copy_planned_footprint_and_model_files(run_state: dict) -> dict:
     Copies selected footprint and model files to their planned target paths.
     This does not edit footprint contents and does not merge symbols.
     """
+    
+    if not has_pending_file_copy_actions(run_state):
+        run_state["file_copy"]["attempted"] = False
+        run_state["file_copy"]["copied_files"] = []
+        run_state["file_copy"]["complete"] = True
+        run_state["copied_files"] = []
+        run_state["files_copied"] = False
+
+        return mark_success(
+            run_state,
+            script="kicad_import_assistant.py",
+            step="copy_planned_files",
+            function_name="copy_planned_footprint_and_model_files",
+            message="No footprint/model files required copying.",
+        )
+    
     if not run_state["file_copy"]["user_confirmed"]:
         return mark_failure(
             run_state,
@@ -110,6 +156,16 @@ def copy_planned_footprint_and_model_files(run_state: dict) -> dict:
 
     for file_type in ["footprint", "model"]:
         plan_item = run_state["import_plan"][file_type]
+
+        if plan_item.get("action") == "SKIPPED_BY_USER":
+            dbg_print(
+                f"{file_type} copy skipped by user.",
+                Severity.INFO,
+                "importer",
+                "copy",
+                "workflow_footprint",
+            )
+            continue
 
         source_path = plan_item.get("source_path")
         target_path = plan_item.get("target_path")
@@ -249,6 +305,29 @@ def update_copied_footprint_contents(run_state: dict) -> dict:
 
     This stage does not merge symbols and does not save config.
     """
+    
+    if run_state["import_plan"]["footprint"].get("action") == "SKIPPED_BY_USER":
+        run_state["footprint_update"]["complete"] = True
+
+        return mark_success(
+            run_state,
+            script="kicad_import_assistant.py",
+            step="update_copied_footprint_contents",
+            function_name="update_copied_footprint_contents",
+            message="Footprint update skipped by user.",
+        )
+
+    if run_state["import_plan"]["footprint"].get("source_path") is None:
+        run_state["footprint_update"]["complete"] = True
+
+        return mark_success(
+            run_state,
+            script="kicad_import_assistant.py",
+            step="update_copied_footprint_contents",
+            function_name="update_copied_footprint_contents",
+            message="No footprint update required.",
+        )
+
     if not run_state["file_copy"]["complete"]:
         return mark_failure(
             run_state,
@@ -331,7 +410,12 @@ def update_copied_footprint_contents(run_state: dict) -> dict:
     if not value_updated:
         update_errors.append("Footprint Value property was not updated.")
 
-    target_model = model_plan.get("target_path")
+    model_was_copied = (
+        run_state["model"].get("copied")
+        and model_plan.get("action") != "SKIPPED_BY_USER"
+    )
+
+    target_model = model_plan.get("target_path") if model_was_copied else None
 
     if target_model is not None:
         target_model = Path(target_model)

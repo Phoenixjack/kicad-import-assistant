@@ -4,112 +4,132 @@ KiCad Import Assistant is a standalone Python utility for importing vendor-provi
 
 The tool is designed around a cautious workflow: preview first, confirm explicitly, create backups where needed, and refuse unsafe overwrites.
 
-**Unreleased V0.11.0 loose-file import branch**
+**Unreleased V0.13.0 per-item skip actions branch**
 
-Current development branch: `feature/loose-file-import`
+Current development branch: `feature/per-item-skip-actions`
 
-Update the branch note/status to something like:
+## V0.13 per-item skip actions branch note
 
-## V0.11 loose-file import branch note
+The `feature/per-item-skip-actions` branch adds support for choosing which planned import actions should run before target-library writes occur.
 
-The `feature/loose-file-import` branch adds support for selecting either a single vendor ZIP file or a loose KiCad import file set.
+Supported per-item choices:
 
-Supported source selections:
+* import or skip footprint
+* import or skip 3D model
+* merge or skip symbol
 
-- one `.zip` file
-- or one loose file set containing up to:
-  - one `.kicad_mod`
-  - one `.kicad_sym`
-  - one `.step` or `.stp`
+Skipped items are marked as `SKIPPED_BY_USER`, ignored by later workflow stages, excluded from the preview manifest, and excluded from post-import loose-file source archiving.
 
-Invalid mixed selections, duplicate footprints, duplicate symbols, duplicate models, or multiple ZIP files are rejected before the import workflow begins.
+Overwrite and replace actions are not active yet. Existing footprint/model targets can be skipped safely, but not overwritten.
 
 ## What It Does
 
 KiCad Import Assistant can currently:
 
 * Select either a vendor ZIP file or a loose KiCad import file set.
-* Validate import-source selections before staging: 
-	* one ZIP file only 
-	* or one footprint, one symbol, and one model file at most 
-* Remember the last successful import source folder as `source_folder`. 
-* Stage loose import files into a temporary import folder so the normal downstream workflow can process them. 
-* Support older KiCad/vendor footprint roots using `(module ...)` as well as newer `(footprint ...)` roots.
-* Extract the ZIP to a temporary folder.
+* Validate import-source selections before staging:
+
+  * one ZIP file only
+  * or one footprint, one symbol, and one model file at most
+
+* Remember the last successful import source folder as `source_folder`.
+* Stage loose import files into a temporary import folder so the normal downstream workflow can process them.
+* Extract vendor ZIP files into a temporary import folder.
 * Detect KiCad footprint, symbol, and STEP/STP model files.
+* Support older KiCad/vendor footprint roots using `(module ...)` as well as newer `(footprint ...)` roots.
 * Suggest naming defaults from detected files.
 * Prompt for naming tokens using schema-driven menus.
 * Generate standardized footprint/symbol/model basenames.
 * Detect possible existing imports by early MPN search.
+* Create an import plan.
+* Review planned footprint, model, and symbol actions before import.
+* Skip individual footprint, model, or symbol actions before target-library writes.
+* Avoid duplicate target writes by skipping existing footprint/model targets.
 * Create and optionally write a preview import-plan CSV.
-* Require explicit confirmation before file-copy writes.
+* Exclude skipped items from the preview import-plan CSV.
+* Preserve `.step` and `.stp` model suffixes in preview manifest target paths.
+* Require explicit confirmation before file-copy writes when footprint/model copy actions remain.
+* Skip file-copy confirmation when no footprint/model copy actions remain.
 * Copy and rename footprint/model files into a target `.pretty` folder.
 * Update copied footprint internals:
 
   * internal footprint name
   * visible `Value` field
-  * 3D model reference
+  * 3D model reference when a model was copied
   * hidden import/review metadata
+
 * Create an edited symbol preview file.
 * Update symbol names, nested KiCad unit names, and symbol `Footprint` properties.
 * Resolve the correct target `.kicad_sym` file.
-* Require explicit confirmation before modifying the target symbol library.
+* Require explicit confirmation before modifying the target symbol library when a symbol merge action remains.
 * Create a timestamped backup of the target symbol library.
 * Merge the previewed symbol into the target symbol library when safety checks pass.
 * Refuse duplicate footprint/model overwrites.
 * Refuse duplicate symbol merges.
 * Save successful run state back to config.
-* Clean up temporary extraction folders when `keep_temp_files` is false.
+* Clean up temporary extraction/staging folders when `keep_temp_files` is false.
 * Print a final import summary.
-* Offer to archive original source files after successful import. 
-* Move archived source files into a local `_imported` folder. 
+* Report skipped footprint/model/symbol actions accurately in the final import summary.
+* Offer to archive original source files after successful import.
+* Move archived source files into a local `_imported` folder.
+* Archive only the original source files that were actually imported or merged.
 * Avoid overwriting archived source files by adding timestamped filenames when needed.
 
 More detailed feature notes are available in [`FEATURES.md`](FEATURES.md).
 
 Version-by-version history is available in [`VERSION_HISTORY.md`](VERSION_HISTORY.md).
 
-Development note: active refactor planning is tracked in [`REFACTOR_PLAN.md`](REFACTOR_PLAN.md) while the debug/refactor cleanup branch is in progress.
-
 ## Basic Workflow
 
 The current staged workflow is:
 
-1. Select a vendor ZIP file.
+1. Select a vendor ZIP file or loose KiCad import file set.
 2. Select the custom KiCad library root or target `.pretty` folder.
 3. Resolve the target `.pretty` folder and `.kicad_sym` file.
-4. Extract and scan the ZIP.
-5. Suggest naming defaults.
-6. Collect the manufacturer part number early.
-7. Check for possible existing imports by MPN.
-8. Prompt for naming tokens.
-9. Generate the final basename.
-10. Select source footprint, symbol, and model files.
-11. Create the import plan.
-12. Optionally write a preview import-plan CSV.
-13. Require the user to type `COPY`.
-14. Copy/rename footprint and model files.
-15. Update the copied footprint.
-16. Create an edited symbol preview.
-17. Require the user to type `MERGE`.
-18. Back up the target symbol library.
-19. Merge the edited symbol into the target symbol library.
-20. Save successful config state.
-21. Clean up the temporary import folder when allowed.
-22. Print the final import summary.
+4. Extract or stage the selected import source.
+5. Detect footprint, symbol, and model source files.
+6. Select candidate source footprint, symbol, and model files.
+7. Suggest naming defaults.
+8. Collect the manufacturer part number early.
+9. Check for possible existing imports by MPN.
+10. Prompt for naming tokens.
+11. Generate the final basename.
+12. Create the import plan.
+13. Choose per-item import actions:
+
+    * footprint import or skip
+    * model import or skip
+    * symbol merge or skip
+
+14. Optionally write a preview import-plan CSV.
+15. Require the user to type `COPY` when footprint/model copy actions remain.
+16. Copy/rename selected footprint and/or model files.
+17. Update the copied footprint when a footprint was imported.
+18. Create an edited symbol preview when a symbol merge was selected.
+19. Require the user to type `MERGE` when a symbol merge action remains.
+20. Back up the target symbol library.
+21. Merge the edited symbol into the target symbol library.
+22. Save successful config state.
+23. Clean up the temporary import folder when allowed.
+24. Print the final import summary.
+25. Optionally archive original source files that correspond to actions that actually ran.
 
 ## Safety Behavior
 
 This tool is intentionally conservative.
 
-Before copying footprint/model files, it requires this exact confirmation:
+Per-item skip actions allow the user to skip individual footprint, model, or symbol operations before writing to the target library.
 
+Existing footprint/model targets are not overwritten in this version. When an existing footprint/model target is detected, the user can skip that item or stop the run.
+
+Before copying footprint/model files, when copy actions remain, the tool requires this exact confirmation:
 ```text
 COPY
 ```
 
-Before modifying a target symbol library, it requires this exact confirmation:
+When all footprint/model actions are skipped, the COPY prompt is skipped.
 
+Before modifying a target symbol library, when a symbol merge action remains, the tool requires this exact confirmation:
 ```text
 MERGE
 ```
@@ -118,27 +138,30 @@ The tool currently refuses to overwrite existing footprint/model files.
 
 Before merging a symbol, it checks whether the generated symbol already exists in the resolved target symbol library.
 
-Before modifying a target `.kicad_sym` library, it creates a timestamped backup file.
+Before modifying a target `.kicad_sym library`, it creates a timestamped backup file.
 
 Temp folders are deleted after successful completion when `keep_temp_files` is false. When `keep_temp_files` is true, the temp folder is preserved for review/debugging.
 
-The tool can optionally move the original selected source files into an `_imported` archive folder after successful import.
+The tool can optionally move original selected source files into an `_imported` archive folder after successful import.
+
+For loose-file imports, skipped source files are not archived. Only original source files corresponding to actions that actually ran are offered for archive.
 
 Even with these safeguards, this is still early-development software. Back up your KiCad libraries before testing it against production libraries.
 
 ## Intended Library Structure
 
 The project currently assumes a custom KiCad library layout similar to:
-
 ```text
 CUSTOM_LIBRARIES/
 ├─ _testCONN.pretty/
 │  ├─ *.kicad_mod
 │  ├─ *.step
+│  ├─ *.stp
 │  └─ _testCONN.kicad_sym
 ├─ _testIC.pretty/
 │  ├─ *.kicad_mod
 │  ├─ *.step
+│  ├─ *.stp
 │  └─ _testIC.kicad_sym
 └─ _TOOLS/
    └─ kicad-import-assistant/
@@ -157,35 +180,30 @@ CUSTOM_LIBRARIES/
          ├─ workflow_plan.py
          ├─ workflow_schema.py
          ├─ workflow_source.py
+         ├─ workflow_source_cleanup.py
          ├─ workflow_status.py
          ├─ workflow_symbol.py
          └─ lower-level helper modules
 ```
 
-Footprints, STEP models, and the associated symbol library may be kept together inside the `.pretty` folder.
+Footprints, STEP/STP models, and the associated symbol library may be kept together inside the `.pretty` folder. This deviates from the KiCAD standard, but the developer prefers a simpler, flatter folder structure.
 
 ## Naming Convention
 
 The current naming convention is:
-
 ```text
 LIB_FAMILY_ROLE_MOUNT_ORIENT_SIZE[_PITCH][_BASE][_FEATURE]_MPN
 ```
-
 For connector parts:
-
 ```text
 CONN_FAMILY_ROLE_MOUNT_ORIENT_SIZE[_PITCH][_BASE][_FEATURE]_MPN
 ```
-
 Example:
-
 ```text
 CONN_HDMI_RCPT_SMD_V_19P_P0.50_SS53000_SS-53000-003
 ```
 
 Where:
-
 ```text
 CONN          Library/category prefix
 HDMI          Connector family
@@ -202,56 +220,72 @@ SS-53000-003  Exact manufacturer/orderable part number
 
 The project uses separate JSON files for local config, naming vocabulary, and suggestion rules.
 
-```text
-kicad_import_assistant_config.example.json
-```
+* `kicad_import_assistant_config.example.json` - Example local/user configuration. The real local config file is intentionally ignored by Git.
 
-Example local/user configuration. The real local config file is intentionally ignored by Git.
+* `kicad_import_naming_schema.json` - Naming vocabulary, token sets, field order, normalization rules, and validation rules.
 
-```text
-kicad_import_naming_schema.json
-```
-
-Naming vocabulary, token sets, field order, normalization rules, and validation rules.
-
-```text
-kicad_import_suggestion_rules.json
-```
-
-Filename-based suggestion rules used to prefill naming fields during import.
+* `kicad_import_suggestion_rules.json` - Filename-based suggestion rules used to prefill naming fields during import.
 
 ## KiCad Compatibility
 
 Development/testing is currently being done against a modern KiCad environment using current KiCad S-expression symbol and footprint formats.
 
 Known state:
-
 * Tested primarily with recent KiCad 9/10-style files and workflows.
 * KiCad 8/9-style S-expression files are expected to be broadly compatible, but not guaranteed.
 * KiCad 6/7 compatibility has not been tested.
 * Legacy or unusual vendor file formats may require manual review or parser updates.
 
-## Requirements
-
+Requirements
 * Python 3.12 or newer
 * Tkinter, included with most standard Python installs
 * Windows is currently used for development/testing
 
 No KiCad Python plugin or KiCad CLI integration is currently required.
 
-## Running
+Running
 
 From the repository folder:
-
-```powershell
+```text
 py kicad_import_assistant.py
 ```
-
 or:
-
-```powershell
+```text
 python kicad_import_assistant.py
 ```
+
+## Current Limitations
+
+The tool currently does not:
+* permanently delete imported source files
+* import from a loose folder of files
+* overwrite existing footprint/model files
+* overwrite or replace existing symbol definitions
+* perform per-item overwrite/replace actions
+* auto-create missing target symbol libraries
+* link an existing symbol to a newly imported footprint
+* link an existing 3D model to a newly imported footprint
+* guarantee that symbol Footprint properties point to an already-existing footprint when the footprint action is skipped
+* perform full KiCad S-expression validation
+* guarantee 3D model orientation
+* validate all pad/pin/schematic correctness
+* guarantee compatibility with all KiCad versions
+* provide a full GUI configuration workflow
+* operate as a native KiCad plugin
+* query online part databases or distributor APIs
+* enrich part metadata from manufacturer part numbers
+* auto-suggest naming fields from verified external part data
+
+Human review is still required.
+
+## Near-Term Goals
+
+Planned near-term work:
+* Simplify execution confirmation by replacing separate COPY and MERGE prompts with one final selected-actions confirmation.
+* Add missing target symbol library creation.
+* Add per-item overwrite/replace actions with explicit backup behavior.
+* Add workflows for linking existing symbols/models to newly imported footprints.
+* Continue polishing normal/debug output boundaries as new workflow stages are added.
 
 ## Disclaimer
 

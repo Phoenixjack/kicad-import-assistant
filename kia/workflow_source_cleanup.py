@@ -1,6 +1,6 @@
 """
 kia/workflow_source_cleanup.py
-  archive_successful_loose_source_files()
+  archive_successful_source_files()
 """
 
 import shutil
@@ -26,7 +26,72 @@ def make_unique_archive_path(archive_dir: Path, source_path: Path) -> Path:
     return archive_dir / f"{source_path.stem}.{timestamp}{source_path.suffix}"
 
 
-def prompt_archive_source_files(source_paths: list[Path], archive_dir: Path) -> bool:
+def classify_original_source_path(source_path: Path) -> str | None:
+    """
+    Classify an original selected source file by suffix.
+    """
+    suffix = source_path.suffix.lower()
+
+    if suffix == ".zip":
+        return "zip"
+
+    if suffix == ".kicad_mod":
+        return "footprint"
+
+    if suffix == ".kicad_sym":
+        return "symbol"
+
+    if suffix in [".step", ".stp"]:
+        return "model"
+
+    return None
+
+
+def get_archivable_source_paths(run_state: dict) -> list[Path]:
+    """
+    Return original source paths eligible for post-import archiving.
+
+    ZIP imports archive the original ZIP after a successful import.
+    Loose-file imports archive only original source files whose plan item was not skipped.
+    """
+    source_mode = run_state["current"].get("source_mode")
+    original_source_paths = [
+        Path(path)
+        for path in run_state["current"].get("source_paths", [])
+    ]
+
+    if source_mode == "zip":
+        return original_source_paths
+
+    if source_mode != "loose_files":
+        return []
+
+    archivable_paths = []
+
+    for original_source_path in original_source_paths:
+        file_type = classify_original_source_path(original_source_path)
+
+        if file_type is None:
+            continue
+
+        plan_item = run_state["import_plan"].get(file_type, {})
+
+        if plan_item.get("action") == "SKIPPED_BY_USER":
+            continue
+
+        if plan_item.get("source_path") is None:
+            continue
+
+        archivable_paths.append(original_source_path)
+
+    return archivable_paths
+
+
+def prompt_archive_source_files(
+    source_paths: list[Path],
+    archive_dir: Path,
+    source_mode: str,
+) -> bool:
     """
     Ask whether to archive original loose source files after successful import.
     """
@@ -66,9 +131,8 @@ def archive_successful_source_files(run_state: dict) -> dict:
     run_state["source_cleanup"].setdefault("failed_files", [])
 
     source_mode = run_state["current"].get("source_mode")
-    source_paths = run_state["current"].get("source_paths", [])
+    source_paths = get_archivable_source_paths(run_state)
 
-    source_mode = run_state["current"].get("source_mode")
 
     archive_loose_files = bool(cleanup_config.get("archive_loose_files", True))
     archive_zip_files = bool(cleanup_config.get("archive_zip_files", True))
@@ -105,7 +169,7 @@ def archive_successful_source_files(run_state: dict) -> dict:
             run_state,
             script="workflow_source_cleanup.py",
             step="archive_source_files",
-            function_name="archive_successful_loose_source_files",
+            function_name="archive_successful_source_files",
             message="Source cleanup skipped by config.",
         )
 
@@ -114,7 +178,7 @@ def archive_successful_source_files(run_state: dict) -> dict:
             run_state,
             script="workflow_source_cleanup.py",
             step="archive_source_files",
-            function_name="archive_successful_loose_source_files",
+            function_name="archive_successful_source_files",
             message="Source cleanup skipped because cleanup mode is not archive.",
         )
 
@@ -123,11 +187,20 @@ def archive_successful_source_files(run_state: dict) -> dict:
             run_state,
             script="workflow_source_cleanup.py",
             step="archive_source_files",
-            function_name="archive_successful_loose_source_files",
+            function_name="archive_successful_source_files",
             message="Source cleanup skipped because no source paths were recorded.",
         )
 
     source_paths = [Path(path) for path in source_paths]
+
+    if not source_paths:
+        return mark_success(
+            run_state,
+            script="workflow_source_cleanup.py",
+            step="archive_source_files",
+            function_name="archive_successful_source_files",
+            message="Source cleanup skipped because no eligible source files remain for archive.",
+        )
 
     source_folder = run_state["current"].get("source_folder")
 
@@ -147,6 +220,7 @@ def archive_successful_source_files(run_state: dict) -> dict:
     user_confirmed = prompt_archive_source_files(
         source_paths=source_paths,
         archive_dir=archive_dir,
+        source_mode=source_mode,
     )
 
     run_state["source_cleanup"]["user_confirmed"] = user_confirmed
@@ -158,7 +232,7 @@ def archive_successful_source_files(run_state: dict) -> dict:
             run_state,
             script="workflow_source_cleanup.py",
             step="archive_source_files",
-            function_name="archive_successful_loose_source_files",
+            function_name="archive_successful_source_files",
             message="User chose not to archive source files.",
         )
 
@@ -226,6 +300,6 @@ def archive_successful_source_files(run_state: dict) -> dict:
         run_state,
         script="workflow_source_cleanup.py",
         step="archive_source_files",
-        function_name="archive_successful_loose_source_files",
+        function_name="archive_successful_source_files",
         message="Source cleanup archive stage complete.",
     )

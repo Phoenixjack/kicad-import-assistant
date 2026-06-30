@@ -1,5 +1,52 @@
 # Version History
 
+## Unreleased - V0.13.0 Per-Item Skip Actions
+
+Feature branch: `feature/per-item-skip-actions`
+
+Adds per-item import action choices so footprint, model, and symbol operations can be kept or skipped independently before the import writes to the target library.
+
+Changes:
+
+* Adds per-item action prompts after the import plan is created.
+* Allows the user to keep or skip each planned import item:
+  * footprint import
+  * 3D model import
+  * symbol merge
+* Marks skipped plan items as `SKIPPED_BY_USER`.
+* Updates footprint/model copy logic to ignore skipped items.
+* Updates symbol preview/merge logic to ignore skipped symbols.
+* Skips the global file-copy confirmation when no footprint/model copy actions remain.
+* Prevents skipped loose source files from being archived after import.
+* Archives only original source files that correspond to import actions that actually ran.
+* Updates final import summary so skipped footprint/model/symbol actions are reported correctly.
+* Updates preview manifest behavior so skipped items are excluded.
+* Fixes preview manifest model target extension handling so `.stp` and `.step` are preserved correctly.
+* Keeps existing hard-confirmation prompts for file copy and symbol merge when those action types are still selected.
+
+Tested:
+
+* Full import with footprint, model, and symbol kept.
+* Loose-file import with model skipped and footprint/symbol kept.
+* Loose-file import with symbol skipped and footprint/model kept.
+* Loose-file import with footprint/model skipped and symbol kept.
+* Existing target footprint skipped while model and symbol were imported.
+* Skip-all path exits cleanly before writes.
+* Archive prompt includes only source files for actions that actually ran.
+* Skipped source files are left in place.
+* No file-copy prompt is shown when all footprint/model actions are skipped.
+* No target footprint overwrite occurs when the footprint is skipped.
+* Symbol merge still creates a timestamped backup.
+
+Current limitations:
+
+* Per-item overwrite is not active yet.
+* Symbol replacement is not active yet.
+* Existing footprint/model targets can be skipped, but not overwritten.
+* Missing target symbol libraries are not auto-created yet.
+* The global COPY and MERGE confirmation prompts still appear when their corresponding action types are selected.
+
+
 ## Unreleased - V0.12.1 Duplicate Target Warning Severity
 
 Fix branch: `fix/duplicate-target-warning-severity`

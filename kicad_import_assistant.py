@@ -58,8 +58,9 @@ from kia.workflow_naming import (
     build_import_basename,
 )
 from kia.workflow_plan import (
-    select_files_for_import, 
-    create_import_plan, 
+    select_files_for_import,
+    create_import_plan,
+    apply_import_plan_action_choices,
     review_import_plan,
 )
 from kia.workflow_footprint import (
@@ -122,6 +123,9 @@ def main() -> None:
     stop_if_failed(run_state)
 
     run_state = create_import_plan(run_state)
+    stop_if_failed(run_state)
+
+    run_state = apply_import_plan_action_choices(run_state)
     stop_if_failed(run_state)
 
     run_state = review_import_plan(run_state)

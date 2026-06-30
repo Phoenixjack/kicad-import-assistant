@@ -17,8 +17,12 @@ def print_final_import_summary(run_state: dict) -> dict:
     """
     run_state = ensure_finalization_state(run_state)
     basename = run_state["import_plan"]["basename"]
-    target_footprint = run_state["import_plan"]["footprint"].get("target_path")
-    target_model = run_state["import_plan"]["model"].get("target_path")
+    footprint_plan = run_state["import_plan"]["footprint"]
+    model_plan = run_state["import_plan"]["model"]
+    symbol_plan = run_state["import_plan"]["symbol"]
+
+    target_footprint = footprint_plan.get("target_path")
+    target_model = model_plan.get("target_path")
     target_symbol_file = run_state["current"].get("target_symbol_file")
     symbol_backup = run_state["symbol_merge"].get("backup_path")
     manifest_path = run_state["import_plan"].get("manifest_path")
@@ -31,12 +35,22 @@ def print_final_import_summary(run_state: dict) -> dict:
     print()
     print("Imported files:")
 
-    if target_footprint is not None:
+    footprint_was_imported = (
+        run_state["footprint"].get("copied")
+        or footprint_plan.get("action") == "COPIED_UPDATED"
+    )
+
+    model_was_imported = (
+        run_state["model"].get("copied")
+        or model_plan.get("action") == "COPIED_REFERENCED"
+    )
+
+    if footprint_was_imported and target_footprint is not None:
         print(f"  Footprint: {target_footprint}")
     else:
         print("  Footprint: SKIPPED")
 
-    if target_model is not None:
+    if model_was_imported and target_model is not None:
         print(f"  3D model:  {target_model}")
     else:
         print("  3D model:  SKIPPED")
@@ -46,8 +60,7 @@ def print_final_import_summary(run_state: dict) -> dict:
     symbol_was_merged = (
         run_state["symbol"].get("merged")
         or symbol_merge_result.get("symbol_merged")
-        or run_state["symbol_merge"].get("complete")
-        or run_state["import_plan"]["symbol"].get("action") == "MERGED"
+        or symbol_plan.get("action") == "MERGED"
     )
 
     if symbol_was_merged:

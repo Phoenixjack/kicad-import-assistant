@@ -110,9 +110,9 @@ def create_preview_manifest(
         manifest_rows.append({
             "type": "model",
             "source_file": str(selected_model.relative_to(extract_root)),
-            "target_file": str(target_footprint_dir / f"{basename}.step"),
+            "target_file": str(target_footprint_dir / f"{basename}{selected_model.suffix}"),
             "action": "COPY_RENAME_PENDING",
-            "notes": "Model will be copied/renamed and referenced by the copied footprint when a footprint is imported.",
+            "notes": "Model will be copied/renamed when selected for import.",
         })
 
     if selected_symbol:

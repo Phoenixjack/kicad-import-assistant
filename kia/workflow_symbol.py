@@ -47,6 +47,21 @@ def create_symbol_preview_stage(run_state: dict) -> dict:
 
     source_symbol = run_state["import_plan"]["symbol"].get("source_path")
 
+    if run_state["import_plan"]["symbol"].get("action") == "SKIPPED_BY_USER":
+        dbg_blank(Severity.INFO, "symbols", "preview", "workflow_symbol")
+        dbg_print("Symbol preview skipped by user.", Severity.INFO, "symbols", "preview", "workflow_symbol")
+
+        run_state["symbol_preview"]["complete"] = True
+        run_state["symbol_merge"]["complete"] = True
+
+        return mark_success(
+            run_state,
+            script="kicad_import_assistant.py",
+            step="create_symbol_preview",
+            function_name="create_symbol_preview_stage",
+            message="Symbol preview skipped by user.",
+        )
+
     if source_symbol is None:
         dbg_blank(Severity.INFO, "symbols", "preview", "workflow_symbol")
         dbg_print("Symbol preview skipped.", Severity.INFO, "symbols", "preview", "workflow_symbol")

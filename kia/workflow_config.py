@@ -35,8 +35,8 @@ DEFAULT_CONFIG = {
         "prompt_after_success": True,
         "mode": "archive",
         "archive_folder_name": "_imported",
-          "archive_loose_files": true,
-          "archive_zip_files": true,
+        "archive_loose_files": True,
+        "archive_zip_files": True,
     },
     "libraries": {
         "CONNECTORS": {
