@@ -1,0 +1,16 @@
+{
+  "config_schema_version": 1,
+  "keep_temp_files": false,
+  "source_cleanup": {
+    "prompt_after_success": true,
+    "mode": "archive",
+    "archive_folder_name": "_imported",
+    "archive_loose_files": true,
+    "archive_zip_files": true
+  },
+  "api_integrations": {
+    "supported_apis": [
+      "mouser"
+    ]
+  }
+}

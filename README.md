@@ -4,21 +4,38 @@ KiCad Import Assistant is a standalone Python utility for importing vendor-provi
 
 The tool is designed around a cautious workflow: preview first, review planned actions, confirm selected writes, create backups where needed, and refuse unsafe overwrites.
 
-**Unreleased V0.14.0 simplify execution confirmation branch**
+**Unreleased V0.15.0 public/private config split branch**
 
-Current development branch: `feature/simplify-execution-confirmation`
+Current development branch: `feature/split-public-private-config`
 
-## V0.14 simplify execution confirmation branch note
+## V0.15 public/private config split branch note
 
-The `feature/simplify-execution-confirmation` branch replaces the older separate `COPY` and `MERGE` hard-confirmation prompts with one final selected-actions confirmation.
+The `feature/split-public-private-config` branch separates public factory defaults from ignored local/private data.
 
-The user still chooses individual footprint/model/symbol actions first. After the import plan is reviewed, the tool prints a final summary of the selected actions and asks:
+The importer now uses:
 
 ```text
-Proceed with selected actions? [y/N]:
+kicad_import_assistant_default_config.json      tracked public defaults
+kicad_import_private_data.example.json          tracked example/template
+kicad_import_private_data.json                  ignored local/private data
 ```
 
-This keeps one final safety gate while removing redundant prompts after per-item action approval.
+The public default config contains safe factory behavior only. It does not contain local paths, library profiles, recent values, or API keys.
+
+The private data file contains local machine/project state such as:
+
+```text
+last.source_folder
+last.library_root
+last.library_folder
+last.target_library
+path_variable
+libraries
+recent_values
+api_integrations.keys
+```
+
+Normal successful imports save updated local state only to `kicad_import_private_data.json`. The tracked public default config is read during startup but is not modified during normal use.
 
 ## What It Does
 
@@ -105,35 +122,35 @@ The current staged workflow is:
 24. Print the final import summary.
 25. Optionally archive original source files that correspond to actions that actually ran.
 
-## Safety Behavior
+## Config Safety Behavior
 
-This tool is intentionally conservative.
-
-Per-item skip actions allow the user to skip individual footprint, model, or symbol operations before writing to the target library.
-
-Existing footprint/model targets are not overwritten in this version. When an existing footprint/model target is detected, the user can skip that item or stop the run.
-
-Before any selected target-library writes occur, the tool prints a final selected-actions summary and asks:
+The importer loads configuration in layers:
 
 ```text
-Proceed with selected actions? [y/N]:
+Python fallback defaults
+  -> kicad_import_assistant_default_config.json
+    -> kicad_import_private_data.json
 ```
 
-Declining this final confirmation stops the workflow before footprint/model copy, symbol backup, symbol merge, config save, temp cleanup, final summary, and source archiving.
+Later layers override earlier layers.
 
-The tool currently refuses to overwrite existing footprint/model files.
+The tracked public default config is intended to remain generic and safe to commit. The importer does not save runtime state to this file.
 
-Before merging a symbol, it checks whether the generated symbol already exists in the resolved target symbol library.
+Successful run state is saved only to the ignored private data file.
 
-Before modifying a target `.kicad_sym` library, it creates a timestamped backup file.
+The canonical remembered import-source folder is:
 
-Temp folders are deleted after successful completion when `keep_temp_files` is false. When `keep_temp_files` is true, the temp folder is preserved for review/debugging.
+```text
+last.source_folder
+```
+The older ZIP-only picker key is no longer part of the active config contract.
 
-The tool can optionally move original selected source files into an `_imported` archive folder after successful import.
+The canonical remembered target library is:
 
-For loose-file imports, skipped source files are not archived. Only original source files corresponding to actions that actually ran are offered for archive.
-
-Even with these safeguards, this is still early-development software. Back up your KiCad libraries before testing it against production libraries.
+```text
+last.target_library
+```
+Library-specific naming behavior comes from each configured library entry’s `schema_profile` value.
 
 ## Intended Library Structure
 
@@ -213,24 +230,31 @@ SS-53000-003  Exact manufacturer/orderable part number
 
 ## JSON Files
 
-The project uses separate JSON files for local config, naming vocabulary, and suggestion rules.
+The project uses separate JSON files for public defaults, private/local data, naming vocabulary, and suggestion rules.
 
 ```text
-kicad_import_assistant_config.example.json
+kicad_import_assistant_default_config.json
 ```
+Tracked public factory defaults. This file should be safe to commit. It contains generic behavior settings such as temp-file handling, source cleanup defaults, and supported API names. It should not contain local paths, user library profiles, recent values, or API keys.
 
-Example local/user configuration. The real local config file is intentionally ignored by Git.
+```text
+kicad_import_private_data.example.json
+```
+Tracked example/template for local private data. This file documents the expected private-data structure without containing real local paths or secrets.
+
+```text
+kicad_import_private_data.json
+```
+Ignored local/private data. This file contains machine/project-specific values such as local KiCad library paths, configured library profiles, recent naming values, and API keys.
 
 ```text
 kicad_import_naming_schema.json
 ```
-
 Naming vocabulary, token sets, field order, normalization rules, and validation rules.
 
 ```text
 kicad_import_suggestion_rules.json
 ```
-
 Filename-based suggestion rules used to prefill naming fields during import.
 
 ## KiCad Compatibility
@@ -276,6 +300,8 @@ The tool currently does not:
 * auto-create missing target symbol libraries
 * link an existing symbol to a newly imported footprint
 * link an existing 3D model to a newly imported footprint
+* clear stale footprint 3D model references when model import is skipped
+* clear stale symbol Footprint properties when footprint import is skipped
 * guarantee that symbol `Footprint` properties point to an already-existing footprint when the footprint action is skipped
 * perform full KiCad S-expression validation
 * guarantee 3D model orientation

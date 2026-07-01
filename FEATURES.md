@@ -2,9 +2,9 @@
 
 This file describes the current capabilities and known limitations of KiCad Import Assistant.
 
-Current version: **Unreleased V0.14.0 simplify execution confirmation branch**
+Current version: **Unreleased V0.15.0 public/private config split branch**
 
-Current development branch: `feature/simplify-execution-confirmation`
+Current development branch: `feature/split-public-private-config`
 
 ## Import Source Handling
 
@@ -13,57 +13,81 @@ The tool can currently:
 * Select a vendor ZIP file using a GUI file picker.
 * Select a loose KiCad import file set using the same GUI file picker.
 * Validate that the selected source is either:
-
   * exactly one `.zip` file
   * or a loose file set containing no more than:
     * one `.kicad_mod`
     * one `.kicad_sym`
     * one `.step` or `.stp`
-
 * Reject invalid source selections with an error dialog and return to the picker.
 * Remember the last attempted picker folder during selection retries.
 * Remember the last successful import source folder in config as `source_folder`.
 * Extract ZIP files to a temporary folder.
 * Stage loose import files into a temporary folder.
 * Recursively detect:
-
   * `.kicad_mod`
   * `.kicad_sym`
   * `.step`
   * `.stp`
-
 * Select candidate footprint, symbol, and model files for import.
+* Remember the last successful import source folder in private data as `last.source_folder`.
+* Use the same remembered source folder for ZIP imports and loose-file imports.
 
 ## Config Handling
 
-The tool can:
+The tool now separates public defaults from local/private data.
 
-* Load local JSON configuration.
-* Save updated local JSON configuration after successful import.
-* Remember:
+Tracked public files:
+```text
+kicad_import_assistant_default_config.json
+kicad_import_private_data.example.json
+```
 
-  * last ZIP folder
-  * last import source folder
-  * last selected library root
-  * last selected library folder
-  * last target library
-  * recent naming-token values
+Ignored private/local file:
+```text
+kicad_import_private_data.json
+```
 
-* Safely fall back when remembered folders no longer exist.
-* Correct accidental selection of a `.pretty` folder as the library root.
-* Respect `keep_temp_files` during final cleanup.
-* Configure source cleanup behavior:
+The runtime config is loaded in layers:
+```text
+Python fallback defaults
+  -> tracked public default config
+    -> ignored private data
+```
 
-  * prompt after successful import
-  * archive mode
-  * archive folder name
-  * ZIP source archiving
-  * loose-file source archiving
+Private/local data wins over public defaults.
+
+The public default config is intended for factory-safe behavior only. It should not contain:
+* local paths
+* user-specific library profiles
+* recent naming values
+* API keys
+* secrets
+
+The private data file may contain:
+* `last.source_folder`
+* `last.library_root`
+* `last.library_folder`
+* `last.target_library`
+* `path_variable`
+* `libraries`
+* `recent_values`
+* `api_integrations.keys`
+
+Successful imports save updated local state only to `kicad_import_private_data.json`.
+
+The tracked public default config is not modified during normal imports.
+
+The importer uses `last.source_folder` as the canonical remembered import-source folder for both ZIP imports and loose-file imports.
+
+The older ZIP-only `zip_folder` key is no longer part of the active config contract.
+
+The importer uses `last.target_library` as the canonical remembered target-library key.
+
+The older ambiguous `last.profile` key is no longer part of the active config contract. Library-specific naming behavior belongs in each library entry’s `schema_profile` value.
 
 ## Target Library Resolution
 
 The tool can:
-
 * Resolve the target footprint/model folder from config.
 * Resolve the target `.kicad_sym` file.
 * Use the configured symbol file if it exists.
@@ -72,7 +96,6 @@ The tool can:
 * Prefer a symbol library that matches the target `.pretty` folder name.
 
 Example:
-
 ```text
 _testIC.pretty
 └─ _testIC.kicad_sym
@@ -85,7 +108,6 @@ The resolver prefers `_testIC.kicad_sym`.
 The tool uses a staged workflow built around `run_state`.
 
 The main script is intended to perform orchestration only. Workflow behavior is split into helper modules:
-
 ```text
 kicad_import_assistant.py
 kia/run_state.py
@@ -136,7 +158,6 @@ CONN_HDMI_RCPT_SMD_V_19P_P0.50_SS53000_SS-53000-003
 The importer can let the user keep or skip individual planned import actions before target-library writes occur.
 
 Supported per-item choices:
-
 * import or skip footprint
 * import or skip 3D model
 * merge or skip symbol
@@ -144,7 +165,6 @@ Supported per-item choices:
 Skipped items are marked as `SKIPPED_BY_USER` in the import plan and are ignored by later workflow stages.
 
 Current behavior:
-
 * Existing footprint/model targets are detected during action selection.
 * Overwrite is not supported yet.
 * Existing footprint/model targets can be skipped safely.
@@ -339,6 +359,8 @@ Normal output is intentionally limited to user decisions, safety confirmations, 
 ## Current Limitations
 
 The tool currently does not:
+* clear stale footprint 3D model references when model import is skipped
+* clear stale symbol Footprint properties when footprint import is skipped
 * permanently delete imported source files
 * import from a loose folder of files
 * overwrite existing footprint/model files

@@ -1,0 +1,41 @@
+{
+  "config_schema_version": 1,
+  "last": {
+    "source_folder": "%USERPROFILE%/Downloads",
+    "library_root": "%USERPROFILE%/Documents/KiCAD/CUSTOM_LIBRARIES",
+    "library_folder": "%USERPROFILE%/Documents/KiCAD/CUSTOM_LIBRARIES/_testCONN.pretty",
+    "target_library": "CONNECTORS"
+  },
+  "path_variable": "KICAD_USER_LIB",
+  "libraries": {
+    "CONNECTORS": {
+      "prefix": "CONN",
+      "footprint_dir": "_testCONN.pretty",
+      "symbol_file": "_testCONN.kicad_sym",
+      "nickname": "_testCONN",
+      "schema_profile": "connector"
+    },
+    "IC": {
+      "prefix": "IC",
+      "footprint_dir": "_testIC.pretty",
+      "symbol_file": "_testIC.kicad_sym",
+      "nickname": "_testIC",
+      "schema_profile": "ic"
+    }
+  },
+  "recent_values": {
+    "family": [],
+    "role": [],
+    "mount": [],
+    "orient": [],
+    "size": [],
+    "pitch": [],
+    "base": [],
+    "feature": []
+  },
+  "api_integrations": {
+    "keys": {
+      "mouser": ""
+    }
+  }
+}

@@ -124,18 +124,24 @@ def classify_import_source_selection(paths: list[Path]) -> tuple[str, list[Path]
 
 def select_target_library_profile(config: dict, suggested_profile: str | None = None) -> str:
     """
-    Ask the user which configured library profile to use.
+    Ask the user which configured target library to use.
     """
     libraries = config.get("libraries", {})
 
     if not libraries:
         print()
-        print("ERROR: No library profiles are configured.")
-        print("Check kicad_import_assistant_config.json.")
+        print("ERROR: No target library profiles are configured.")
+        print("Check kicad_import_private_data.json.")
         raise SystemExit
 
     library_names = list(libraries.keys())
-    default_library = suggested_profile or config.get("last_target_library", library_names[0])
+    last_config = config.get("last", {})
+
+    default_library = (
+        suggested_profile
+        or last_config.get("target_library")
+        or library_names[0]
+    )
 
     if default_library not in libraries:
         default_library = library_names[0]
@@ -176,7 +182,9 @@ def select_target_library_profile(config: dict, suggested_profile: str | None = 
         print(f"  Entered: {user_input}")
         raise SystemExit
 
-    config["last_target_library"] = selected_library
+    config.setdefault("last", {})
+    config["last"]["target_library"] = selected_library
+
     return selected_library
 
 
@@ -294,7 +302,7 @@ def select_import_source(config: dict) -> tuple[str, list[Path]]:
     last_config = config.get("last", {})
 
     initial_dir = get_existing_initial_dir(
-        last_config.get("source_folder") or last_config.get("zip_folder", ""),
+        last_config.get("source_folder", ""),
         Path.home() / "Downloads",
     )
 
@@ -413,73 +421,15 @@ def collect_and_validate_user_input(run_state: dict) -> dict:
             severity=Severity.ERROR,
         )
 
-        if source_mode == "zip":
-            zip_path = source_paths[0]
-
-            if zip_path.suffix.lower() != ".zip":
-                return mark_failure(
-                    run_state,
-                    script="kicad_import_assistant.py",
-                    step="collect_user_input",
-                    function_name="collect_and_validate_user_input",
-                    failure_reason=(
-                        "Selected import source was classified as ZIP but is not a ZIP file.\n"
-                        f"Source: {zip_path}"
-                    ),
-                    severity=Severity.ERROR,
-                )
-
-            run_state["current"]["zip_path"] = zip_path
-            run_state["current"]["zip_folder"] = zip_path.parent
-
-        elif source_mode == "loose_files":
-            allowed_suffixes = {".kicad_mod", ".kicad_sym", ".step", ".stp"}
-
-            invalid_loose_files = [
-                path for path in source_paths
-                if path.suffix.lower() not in allowed_suffixes
-            ]
-
-            if invalid_loose_files:
-                return mark_failure(
-                    run_state,
-                    script="kicad_import_assistant.py",
-                    step="collect_user_input",
-                    function_name="collect_and_validate_user_input",
-                    failure_reason=(
-                        "One or more selected loose source files are not supported.\n"
-                        + "\n".join(f"- {path}" for path in invalid_loose_files)
-                    ),
-                    severity=Severity.ERROR,
-                )
-
-            run_state["current"]["zip_path"] = None
-            run_state["current"]["zip_folder"] = None
-
-        else:
-            return mark_failure(
-                run_state,
-                script="kicad_import_assistant.py",
-                step="collect_user_input",
-                function_name="collect_and_validate_user_input",
-                failure_reason=f"Unsupported import source mode: {source_mode}",
-                severity=Severity.ERROR,
-            )
-
-    if not library_folder.exists() or not library_folder.is_dir():
-        return mark_failure(
-            run_state,
-            script="kicad_import_assistant.py",
-            step="collect_user_input",
-            function_name="collect_and_validate_user_input",
-            failure_reason=f"Selected library folder is not valid:\n{library_folder}",
-            severity=Severity.ERROR,
-        )
-
     run_state["current"]["source_mode"] = source_mode
     run_state["current"]["source_paths"] = source_paths
     run_state["current"]["source_folder"] = source_paths[0].parent
     run_state["current"]["library_folder"] = library_folder
+
+    if source_mode == "zip":
+        run_state["current"]["zip_path"] = source_paths[0]
+    else:
+        run_state["current"]["zip_path"] = None
 
     run_state["user_input"]["source_valid"] = True
     run_state["user_input"]["zip_file_valid"] = source_mode == "zip"

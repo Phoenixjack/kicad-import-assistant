@@ -9,9 +9,20 @@ kicad_import_*/
 kicad_import_preview_manifest.csv
 *.bak
 
-# Local/user-specific config
+# Local/user-specific config  ----- PHASE OUT -----
 kicad_import_local_config.json
 kicad_import_assistant_config.json
+
+# Local/private KiCad Import Assistant data
+kicad_import_private_data.json
+
+# Local GUI experiments
+experiments/
+
+# Optional local backups
+*.bak
+*.backup.json
+*_backup_*.json
 
 # Old/manual backup versions
 junkyard.py

@@ -1,5 +1,59 @@
 # Version History
 
+## Unreleased - V0.15.0 Split Public Defaults and Private Data
+
+Feature branch: `feature/split-public-private-config`
+
+Splits KiCad Import Assistant configuration into tracked public defaults and ignored private/local data.
+
+The public default config now contains factory-safe behavior settings only. Local paths, library profiles, recent values, and API keys belong in ignored private data.
+
+Changes:
+* Adds `kicad_import_assistant_default_config.json` as the tracked public default config.
+* Adds `kicad_import_private_data.example.json` as the tracked private-data template.
+* Uses `kicad_import_private_data.json` for ignored local/private data.
+* Loads runtime config from layered sources:
+  * Python fallback defaults
+  * tracked public default config
+  * ignored private data
+* Saves successful runtime state only to `kicad_import_private_data.json`.
+* Keeps `kicad_import_assistant_default_config.json` unchanged during normal imports.
+* Removes `zip_folder` from the active config contract.
+* Uses `last.source_folder` as the canonical remembered import-source folder.
+* Removes ambiguous `last.profile` from the active config contract.
+* Uses `last.target_library` as the canonical remembered target-library key.
+* Keeps per-library naming behavior under each library entry’s `schema_profile`.
+* Removes stale active references to the old `kicad_import_assistant_config.json` workflow.
+* Updates config error messages to point to private data and the private-data example file.
+* Keeps existing ZIP, loose-file, per-item action, symbol merge, and source archive workflows intact.
+
+Tested:
+* `python -m compileall -f -q kia kicad_import_assistant.py` passes.
+* ZIP import with footprint, symbol, and 3D model passes.
+* Loose-file import with footprint, symbol, and 3D model passes.
+* Per-item skip workflow passes.
+* Symbol-only workflow passes.
+* Missing private data file exits cleanly with useful guidance.
+* Successful imports update `kicad_import_private_data.json`.
+* Successful imports do not modify `kicad_import_assistant_default_config.json`.
+* Active Python and Markdown files no longer reference:
+  * `zip_folder`
+  * `last_target_library`
+  * old active `kicad_import_assistant_config.json` workflow
+
+Known follow-up:
+* Vendor-provided stale model references may remain in imported footprints when model import is skipped.
+* Vendor-provided stale Footprint properties may remain in imported symbols when footprint import is skipped.
+* A follow-up branch should add explicit cleanup/clear behavior for skipped reference fields.
+
+Current limitations:
+* Per-item overwrite is not active yet.
+* Symbol replacement is not active yet.
+* Existing footprint/model targets can be skipped, but not overwritten.
+* Missing target symbol libraries are not auto-created yet.
+* Stale footprint model references are not cleared when model import is skipped.
+* Stale symbol Footprint properties are not cleared when footprint import is skipped.
+
 ## Unreleased - V0.14.0 Simplify Execution Confirmation
 
 Feature branch: `feature/simplify-execution-confirmation`
@@ -9,7 +63,6 @@ Replaces the older separate `COPY` and `MERGE` hard-confirmation prompts with on
 The user still chooses per-item footprint/model/symbol actions first. After import-plan review, the tool summarizes the selected actions and asks for one final confirmation before target-library writes occur.
 
 Changes:
-
 * Adds `kia/workflow_execution.py`.
 * Adds one final selected-actions confirmation stage.
 * Prints selected footprint, model, and symbol actions before writes.
@@ -24,7 +77,6 @@ Changes:
 * Updates README and FEATURES documentation for the new confirmation flow.
 
 Tested:
-
 * Full import with footprint, model, and symbol kept.
 * Import with model skipped and footprint/symbol kept.
 * Symbol-only merge with footprint/model skipped.
@@ -37,7 +89,6 @@ Tested:
 * Skipped source files are left in place.
 
 Current limitations:
-
 * Per-item overwrite is not active yet.
 * Symbol replacement is not active yet.
 * Existing footprint/model targets can be skipped, but not overwritten.
@@ -50,7 +101,6 @@ Feature branch: `feature/per-item-skip-actions`
 Adds per-item import action choices so footprint, model, and symbol operations can be kept or skipped independently before the import writes to the target library.
 
 Changes:
-
 * Adds per-item action prompts after the import plan is created.
 * Allows the user to keep or skip each planned import item:
   * footprint import
@@ -68,7 +118,6 @@ Changes:
 * Keeps existing hard-confirmation prompts for file copy and symbol merge when those action types are still selected.
 
 Tested:
-
 * Full import with footprint, model, and symbol kept.
 * Loose-file import with model skipped and footprint/symbol kept.
 * Loose-file import with symbol skipped and footprint/model kept.
@@ -82,7 +131,6 @@ Tested:
 * Symbol merge still creates a timestamped backup.
 
 Current limitations:
-
 * Per-item overwrite is not active yet.
 * Symbol replacement is not active yet.
 * Existing footprint/model targets can be skipped, but not overwritten.
@@ -95,13 +143,11 @@ Current limitations:
 Fix branch: `fix/duplicate-target-warning-severity`
 
 Changes:
-
 * Reclassifies existing target footprint/model overwrite protection from error severity to warning severity.
 * Keeps overwrite protection behavior unchanged.
 * Prevents intentional duplicate-target stops from being displayed as `CRITICAL ERROR`.
 
 Tested:
-
 * Existing target footprint/model import attempt stops safely with warning severity.
 * No target files are overwritten.
 * No source archive prompt is shown because the import did not complete successfully.
@@ -113,7 +159,6 @@ Feature branch: `feature/archive-imported-source-files`
 Adds optional post-import archiving for import sources.
 
 Changes:
-
 * Adds optional archive prompt after successful imports.
 * Moves original selected source files into an `_imported` archive folder when the user confirms.
 * Defaults the archive prompt to `N` so source files are not moved by accidental Enter.
@@ -122,14 +167,12 @@ Changes:
 * Keeps source cleanup separate from the core import result; a source archive issue does not retroactively fail a successful import.
 
 Tested:
-
 * Import with archive declined leaves source files in place.
 * Import with archive accepted moves source files into `_imported`.
 * Archive filename collision uses timestamped destination filenames.
 * Missing source file during archive is skipped without critical failure.
 
 Current limitations:
-
 * Source cleanup does not hard-delete files.
 
 
@@ -140,7 +183,6 @@ Feature branch: `feature/loose-file-import`
 Adds loose-file import source selection while preserving the existing ZIP import workflow.
 
 Changes:
-
 * Adds unified import-source file picker.
 * Allows selecting either:
   * exactly one vendor ZIP file
@@ -181,11 +223,9 @@ Breaking refactor work in progress on the `refactor/quiet-normal-output` branch.
 This branch refactors the importer around a staged `run_state` workflow and splits many workflow-stage functions out of `kicad_import_assistant.py`.
 
 Current status:
-
 * `python -m compileall` passes.
 
 Completed in this branch so far:
-
 * Reduces normal workflow output by moving successful stage-detail chatter behind `dbg_print()`. 
 * Keeps prompts, confirmations, warnings/errors, import-plan review, config-save status, and final summary visible. 
 * Reclassifies duplicate target-file overwrite protection as a controlled warning stop instead of a critical error. 
@@ -195,7 +235,6 @@ Completed in this branch so far:
 * Adds `initialize_run_state()` as the central per-import workflow state initializer.
 * Adds staged status handling through `kia/workflow_status.py`.
 * Adds workflow status helpers:
-
   * `mark_success()`
   * `mark_failure()`
   * `stop_if_failed()`
@@ -203,7 +242,6 @@ Completed in this branch so far:
   * `critical_error()`
 * Refactors `kicad_import_assistant.py` toward orchestration-only behavior.
 * Splits workflow stages into helper modules:
-
   * `kia/workflow_config.py`
   * `kia/workflow_input.py`
   * `kia/workflow_source.py`
@@ -224,14 +262,12 @@ Completed in this branch so far:
 * Adds staged footprint/model copy and rename behavior.
 * Adds copied-footprint content update stage.
 * Updates copied footprint:
-
   * internal footprint name
   * visible `Value` field
   * 3D model reference
   * hidden import metadata
 * Adds staged symbol preview generation.
 * Updates preview symbol:
-
   * parent symbol name
   * nested KiCad unit names
   * `Footprint` property
@@ -252,18 +288,15 @@ Completed in this branch so far:
 * Confirms the refactored module split compiles with `python -m compileall`.
 
 Current intentional limitations:
-
 * Loose-file imports are not active yet.
 * Partial imports are not active yet.
 * Existing-symbol/existing-model linking workflows are not active yet.
 
 Breaking changes:
-
 * This branch no longer preserves backward compatibility with the older flat `last_*` config keys as the primary config structure.
 * The config structure is moving toward a nested `config["last"]` object.
 * `run_state` is now the intended runtime data structure for workflow state and staged status reporting.
 * Confirmation prompts are now stage-specific:
-
   * `COPY` for footprint/model copy writes
   * `MERGE` for symbol-library modification
 
@@ -273,7 +306,6 @@ Breaking changes:
 Major milestone: first real symbol-library merge.
 
 Changes:
-
 * Adds safe symbol merge into the resolved target `.kicad_sym` library.
 * Extracts the edited symbol block from the temporary preview symbol file.
 * Inserts the previewed symbol into the target symbol library after `IMPORT` confirmation.
@@ -289,7 +321,6 @@ Changes:
 Target symbol resolution cleanup.
 
 Changes:
-
 * Changes symbol backup filenames so backups no longer end with `.kicad_sym`.
 * Filters backup-looking symbol files during target symbol resolution.
 * Prefers a symbol library matching the target `.pretty` folder name.
@@ -301,7 +332,6 @@ Changes:
 Symbol merge precheck and backup checkpoint.
 
 Changes:
-
 * Adds symbol merge precheck against the resolved target `.kicad_sym` file.
 * Detects whether the target symbol library already contains the generated symbol name.
 * Creates a timestamped backup of the target symbol library after `IMPORT` confirmation.
@@ -313,7 +343,6 @@ Changes:
 Symbol integration preview.
 
 Changes:
-
 * Adds temporary symbol preview generation.
 * Updates source symbol name in preview files.
 * Updates symbol `Footprint` property in preview files.
@@ -325,7 +354,6 @@ Changes:
 Accurate final import status.
 
 Changes:
-
 * Adds import result flags for copied files and footprint updates.
 * Reports whether footprint internal name was updated.
 * Reports whether footprint `Value` field was updated.
@@ -339,10 +367,8 @@ Changes:
 Schema-driven token menus.
 
 Changes:
-
 * Loads naming schema from `kicad_import_naming_schema.json`.
 * Adds numbered token menus for:
-
   * library prefix
   * family
   * role
@@ -359,7 +385,6 @@ Changes:
 Target symbol file resolution.
 
 Changes:
-
 * Adds target symbol file resolution helper.
 * Uses configured symbol file when present.
 * Falls back to scanning the target `.pretty` folder for one `.kicad_sym` file.
@@ -371,7 +396,6 @@ Changes:
 Import metadata and recent defaults.
 
 Changes:
-
 * Adds hidden import/review metadata fields to copied footprints.
 * Records importer version in the copied footprint.
 * Adds app version reporting to diagnostic output.
@@ -382,7 +406,6 @@ Changes:
 Copied footprint internals.
 
 Changes:
-
 * Updates copied footprint internal name.
 * Adds or updates copied footprint 3D model path.
 * Supports older/unquoted vendor footprint naming syntax.
@@ -393,7 +416,6 @@ Changes:
 Safer copy workflow polish.
 
 Changes:
-
 * Adds/adjusts duplicate MPN detection.
 * Improves pitch normalization.
 * Continues refusing overwrite of existing target files.
@@ -404,7 +426,6 @@ Changes:
 First copy/rename workflow.
 
 Changes:
-
 * Adds hard-confirmed import workflow.
 * Copies and renames selected footprint files.
 * Copies and renames selected STEP/STP model files.
@@ -418,7 +439,6 @@ Changes:
 Preview manifest workflow.
 
 Changes:
-
 * Prompts for naming tokens.
 * Generates proposed basename.
 * Generates target filenames.
@@ -428,7 +448,6 @@ Changes:
 ## Earlier V0.1–V0.3 Milestones
 
 Early prototype stages included:
-
 * GUI ZIP file picker.
 * GUI library root folder picker.
 * JSON config loading/saving.

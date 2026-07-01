@@ -89,7 +89,6 @@ def initialize_run_state() -> dict:
             "source_paths": [],           # selected loose files, or [zip_path], or [folder_path]
             "source_folder": None,        # parent folder for config memory
             "zip_path": None,
-            "zip_folder": None,
             "library_root": None,
             "library_folder": None,
             "target_library": None,
