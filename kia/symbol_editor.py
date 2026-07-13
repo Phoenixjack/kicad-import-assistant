@@ -85,6 +85,29 @@ def update_symbol_footprint_property(
     return updated_text, replacement_count == 1
 
 
+def detect_symbol_footprint_property_value(symbol_text: str) -> str | None:
+    """
+    Return the first symbol Footprint property value, if present.
+    """
+    match = re.search(
+        pattern=r'\(property\s+"Footprint"\s+"([^"]*)"',
+        string=symbol_text,
+    )
+
+    if not match:
+        return None
+
+    return match.group(1)
+
+
+def read_symbol_footprint_property_value(symbol_path: Path) -> str | None:
+    """
+    Read a symbol file and return its first Footprint property value, if present.
+    """
+    symbol_text = symbol_path.read_text(encoding="utf-8")
+    return detect_symbol_footprint_property_value(symbol_text)
+
+
 def add_symbol_import_metadata_properties(
     symbol_text: str,
     importer_version: str,
@@ -185,6 +208,7 @@ def create_symbol_preview_file(
     basename: str,
     extract_root: Path,
     importer_version: str = "",
+    footprint_property_action: str = "update",
 ) -> dict:
     """
     Create an edited preview copy of the source symbol file.
@@ -198,8 +222,13 @@ def create_symbol_preview_file(
         "old_symbol_name": "",
         "new_symbol_name": basename,
         "footprint_property": "",
+        "footprint_property_original": None,
+        "footprint_property_present": False,
+        "footprint_property_action": footprint_property_action,
         "symbol_name_updated": False,
         "footprint_property_updated": False,
+        "footprint_property_cleared": False,
+        "footprint_property_left_unchanged": False,
         "metadata_added": False,
     }
 
@@ -222,19 +251,46 @@ def create_symbol_preview_file(
     footprint_property = f"{nickname}:{basename}"
 
     result["source_symbol"] = source_symbol_path
-    result["footprint_property"] = footprint_property
 
     symbol_text = source_symbol_path.read_text(encoding="utf-8")
+    existing_footprint_property = detect_symbol_footprint_property_value(symbol_text)
+
+    result["footprint_property_original"] = existing_footprint_property
+    result["footprint_property_present"] = existing_footprint_property is not None
 
     updated_text, name_updated, old_symbol_name = update_symbol_name(
         symbol_text=symbol_text,
         new_symbol_name=basename,
     )
 
-    updated_text, footprint_updated = update_symbol_footprint_property(
-        symbol_text=updated_text,
-        footprint_value=footprint_property,
-    )
+    if footprint_property_action == "update":
+        updated_text, footprint_updated = update_symbol_footprint_property(
+            symbol_text=updated_text,
+            footprint_value=footprint_property,
+        )
+
+        result["footprint_property"] = footprint_property
+        result["footprint_property_updated"] = footprint_updated
+
+    elif footprint_property_action == "clear":
+        updated_text, footprint_updated = update_symbol_footprint_property(
+            symbol_text=updated_text,
+            footprint_value="",
+        )
+
+        result["footprint_property"] = ""
+        result["footprint_property_updated"] = False
+        result["footprint_property_cleared"] = footprint_updated
+
+    elif footprint_property_action == "leave":
+        footprint_updated = False
+
+        result["footprint_property"] = existing_footprint_property or ""
+        result["footprint_property_updated"] = False
+        result["footprint_property_left_unchanged"] = existing_footprint_property is not None
+
+    else:
+        raise ValueError(f"Unsupported footprint property action: {footprint_property_action}")
 
     updated_text, metadata_added = add_symbol_import_metadata_properties(
         symbol_text=updated_text,
@@ -248,7 +304,8 @@ def create_symbol_preview_file(
     result["preview_symbol"] = preview_symbol_path
     result["old_symbol_name"] = old_symbol_name
     result["symbol_name_updated"] = name_updated
-    result["footprint_property_updated"] = footprint_updated
+    if footprint_property_action == "update":
+        result["footprint_property_updated"] = footprint_updated
     result["metadata_added"] = metadata_added
 
     dbg_blank(Severity.VERBOSE, "symbols", "preview", "symbol_editor")
@@ -261,6 +318,9 @@ def create_symbol_preview_file(
     dbg_print(f"Symbol name updated: {name_updated}", Severity.VERBOSE, "symbols", "preview", "symbol_editor")
     dbg_print(f"Footprint property updated: {footprint_updated}", Severity.VERBOSE, "symbols", "preview", "symbol_editor")
     dbg_print(f"Metadata added: {metadata_added}", Severity.VERBOSE, "symbols", "preview", "symbol_editor")
+    dbg_print(f"Footprint property action: {result.get('footprint_property_action')}", Severity.VERBOSE, "symbols", "preview", "symbol_editor")
+    dbg_print(f"Footprint property cleared: {result.get('footprint_property_cleared')}", Severity.VERBOSE, "symbols", "preview", "symbol_editor")
+    dbg_print(f"Footprint property left unchanged: {result.get('footprint_property_left_unchanged')}", Severity.VERBOSE, "symbols", "preview", "symbol_editor")
 
     return result
 

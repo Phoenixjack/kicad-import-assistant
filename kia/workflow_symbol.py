@@ -13,10 +13,66 @@ from kia.debug import dbg_blank, dbg_print, Severity
 from kia.workflow_status import mark_success, mark_failure
 from kia.symbol_editor import (
     create_symbol_preview_file,
+    read_symbol_footprint_property_value,
     check_symbol_merge_preconditions,
     create_symbol_library_backup,
     merge_symbol_preview_into_target,
 )
+
+
+def footprint_import_was_selected(run_state: dict) -> bool:
+    """
+    Return True if the footprint action remains selected.
+    """
+    footprint_plan = run_state["import_plan"].get("footprint", {})
+
+    if footprint_plan.get("source_path") is None:
+        return False
+
+    if footprint_plan.get("action") == "SKIPPED_BY_USER":
+        return False
+
+    return True
+
+
+def choose_symbol_footprint_property_action(
+    run_state: dict,
+    source_symbol: Path,
+) -> str:
+    """
+    Decide whether the symbol Footprint property should be updated, cleared,
+    or left alone.
+    """
+    if footprint_import_was_selected(run_state):
+        return "update"
+
+    existing_footprint_property = read_symbol_footprint_property_value(source_symbol)
+
+    run_state["symbol_preview"]["footprint_property_present"] = (
+        existing_footprint_property is not None
+    )
+    run_state["symbol_preview"]["footprint_property_original"] = existing_footprint_property
+
+    if existing_footprint_property is None:
+        return "leave"
+
+    print()
+    print("STALE SYMBOL FOOTPRINT PROPERTY DETECTED")
+    print("The source symbol contains a Footprint property,")
+    print("but the footprint import action was skipped.")
+    print()
+    print(f"Existing Footprint property: {existing_footprint_property}")
+    print()
+    print("Clearing the property avoids leaving a stale footprint link in the imported symbol.")
+    print("Leave it unchanged only if you know it points to a valid footprint in your KiCad library.")
+    print()
+
+    response = input("Clear stale symbol Footprint property? [Y/n]: ").strip().lower()
+
+    if response in ["", "y", "yes"]:
+        return "clear"
+
+    return "leave"
 
 
 def create_symbol_preview_stage(run_state: dict) -> dict:
@@ -110,6 +166,11 @@ def create_symbol_preview_stage(run_state: dict) -> dict:
 
     run_state["symbol_preview"]["attempted"] = True
 
+    footprint_property_action = choose_symbol_footprint_property_action(
+        run_state=run_state,
+        source_symbol=Path(source_symbol),
+    )
+
     try:
         preview_result = create_symbol_preview_file(
             selected_files=selected_files,
@@ -117,6 +178,7 @@ def create_symbol_preview_stage(run_state: dict) -> dict:
             basename=basename,
             extract_root=extract_root,
             importer_version=f"V{APP_VERSION}",
+            footprint_property_action=footprint_property_action,
         )
 
     except Exception as error:
@@ -152,6 +214,11 @@ def create_symbol_preview_stage(run_state: dict) -> dict:
     run_state["symbol_preview"]["symbol_name_updated"] = preview_result.get("symbol_name_updated")
     run_state["symbol_preview"]["footprint_property_updated"] = preview_result.get("footprint_property_updated")
     run_state["symbol_preview"]["metadata_added"] = preview_result.get("metadata_added")
+    run_state["symbol_preview"]["footprint_property_present"] = preview_result.get("footprint_property_present")
+    run_state["symbol_preview"]["footprint_property_original"] = preview_result.get("footprint_property_original")
+    run_state["symbol_preview"]["footprint_property_action"] = preview_result.get("footprint_property_action")
+    run_state["symbol_preview"]["footprint_property_cleared"] = preview_result.get("footprint_property_cleared")
+    run_state["symbol_preview"]["footprint_property_left_unchanged"] = preview_result.get("footprint_property_left_unchanged")
     run_state["symbol_preview"]["merge_precheck"] = merge_precheck
 
     run_state["symbol"]["preview_created"] = preview_result.get("symbol_preview_created")
@@ -164,8 +231,11 @@ def create_symbol_preview_stage(run_state: dict) -> dict:
     if not preview_result.get("symbol_name_updated"):
         update_errors.append("Preview symbol name was not updated.")
 
-    if not preview_result.get("footprint_property_updated"):
+    if footprint_property_action == "update" and not preview_result.get("footprint_property_updated"):
         update_errors.append("Preview symbol Footprint property was not updated.")
+
+    if footprint_property_action == "clear" and not preview_result.get("footprint_property_cleared"):
+        update_errors.append("Preview symbol Footprint property was not cleared.")
 
     if not preview_result.get("metadata_added"):
         update_errors.append("Preview symbol metadata was not added.")
@@ -206,6 +276,9 @@ def create_symbol_preview_stage(run_state: dict) -> dict:
     dbg_print(f"Footprint property: {preview_result.get('footprint_property')}", Severity.INFO, "symbols", "preview", "workflow_symbol")
     dbg_print(f"Symbol name updated: {preview_result.get('symbol_name_updated')}", Severity.INFO, "symbols", "preview", "workflow_symbol")
     dbg_print(f"Footprint property updated: {preview_result.get('footprint_property_updated')}", Severity.INFO, "symbols", "preview", "workflow_symbol")
+    dbg_print(f"Footprint property action: {preview_result.get('footprint_property_action')}", Severity.INFO, "symbols", "preview", "workflow_symbol")
+    dbg_print(f"Footprint property cleared: {preview_result.get('footprint_property_cleared')}", Severity.INFO, "symbols", "preview", "workflow_symbol")
+    dbg_print(f"Footprint property left unchanged: {preview_result.get('footprint_property_left_unchanged')}", Severity.INFO, "symbols", "preview", "workflow_symbol")
     dbg_print(f"Metadata added: {preview_result.get('metadata_added')}", Severity.INFO, "symbols", "preview", "workflow_symbol")
 
     dbg_blank(Severity.INFO, "symbols", "precheck", "workflow_symbol")

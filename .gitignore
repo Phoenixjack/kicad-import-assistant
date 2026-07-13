@@ -16,6 +16,10 @@ kicad_import_assistant_config.json
 # Local/private KiCad Import Assistant data
 kicad_import_private_data.json
 
+# CODEX integrations
+AGENTS.md
+PROJECT_CONTEXT.md
+
 # Local GUI experiments
 experiments/
 

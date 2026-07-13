@@ -16,6 +16,8 @@ from kia.footprint_importer import (
     update_footprint_internal_name,
     update_footprint_value_property,
     update_footprint_model_path,
+    detect_footprint_model_reference,
+    clear_footprint_model_references,
     add_import_metadata_properties,
 )
 
@@ -36,6 +38,38 @@ def has_pending_file_copy_actions(run_state: dict) -> bool:
         return True
 
     return False
+
+
+def prompt_clear_stale_model_reference(model_reference_info: dict) -> bool:
+    """
+    Ask whether to clear stale vendor 3D model references when model import
+    was skipped.
+    """
+    print()
+    print("STALE 3D MODEL REFERENCE DETECTED")
+    print("The copied footprint contains one or more existing 3D model references,")
+    print("but the 3D model import action was skipped.")
+    print()
+
+    model_paths = model_reference_info.get("model_paths", [])
+
+    if model_paths:
+        print("Existing model reference(s):")
+
+        for model_path in model_paths:
+            print(f"  - {model_path}")
+
+    else:
+        print("Existing model reference detected, but the model path could not be parsed.")
+
+    print()
+    print("Clearing the reference avoids leaving a stale vendor model path in the imported footprint.")
+    print("Leave it unchanged only if you know it points to a valid model in your KiCad library.")
+    print()
+
+    response = input("Clear stale 3D model reference(s)? [Y/n]: ").strip().lower()
+
+    return response in ["", "y", "yes"]
 
 
 def confirm_file_copy_execution(run_state: dict) -> dict:
@@ -449,6 +483,34 @@ def update_copied_footprint_contents(run_state: dict) -> dict:
         dbg_blank(Severity.INFO, "importer", "model", "workflow_footprint")
         dbg_print("Footprint 3D model reference update skipped.", Severity.INFO, "importer", "model", "workflow_footprint")
         dbg_print("No model file was selected for import.", Severity.INFO, "importer", "model", "workflow_footprint")
+
+        model_reference_info = detect_footprint_model_reference(target_footprint)
+
+        run_state["footprint_update"]["model_reference_present"] = model_reference_info.get("found", False)
+        run_state["footprint_update"]["model_reference_original"] = model_reference_info.get("first_model_path", "")
+
+        if model_reference_info.get("found"):
+            clear_reference = prompt_clear_stale_model_reference(model_reference_info)
+
+            if clear_reference:
+                clear_result = clear_footprint_model_references(target_footprint)
+
+                run_state["footprint_update"]["model_reference_cleared"] = clear_result.get("cleared", False)
+                run_state["footprint_update"]["model_reference_left_unchanged"] = False
+
+                if not clear_result.get("cleared"):
+                    update_errors.append("Stale footprint 3D model reference was not cleared.")
+                else:
+                    dbg_blank(Severity.INFO, "importer", "model", "workflow_footprint")
+                    dbg_print("Cleared stale footprint 3D model reference(s).", Severity.INFO, "importer", "model", "workflow_footprint")
+                    dbg_print(f"Removed references: {clear_result.get('removed_count')}", Severity.INFO, "importer", "model", "workflow_footprint")
+
+            else:
+                run_state["footprint_update"]["model_reference_left_unchanged"] = True
+                run_state["footprint_update"]["model_reference_cleared"] = False
+
+                dbg_blank(Severity.INFO, "importer", "model", "workflow_footprint")
+                dbg_print("Stale footprint 3D model reference left unchanged by user.", Severity.INFO, "importer", "model", "workflow_footprint")
 
     metadata_added = add_import_metadata_properties(
         footprint_path=target_footprint,

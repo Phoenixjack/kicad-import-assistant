@@ -2,9 +2,9 @@
 
 This file describes the current capabilities and known limitations of KiCad Import Assistant.
 
-Current version: **Unreleased V0.15.0 public/private config split branch**
+Current version: **Unreleased V0.16.0 stale reference cleanup branch**
 
-Current development branch: `feature/split-public-private-config`
+Current development branch: `feature/stale-reference-cleanup`
 
 ## Import Source Handling
 
@@ -241,6 +241,8 @@ After final selected-actions confirmation, when footprint/model copy actions rem
 * Update the copied footprint visible `Value` field.
 * Add or update a 3D model reference when a model was copied.
 * Avoid adding a 3D model reference when the model was skipped.
+* Detect existing vendor 3D model references when the model import action was skipped.
+* Prompt to clear stale 3D model references from the copied footprint.
 * Add hidden import/review metadata fields.
 * Support newer KiCad footprint roots using `(footprint ...)`.
 * Support older KiCad/vendor footprint roots using `(module ...)` when updating the copied footprint internal name.
@@ -262,6 +264,8 @@ The preview can:
 * Rename the parent symbol.
 * Rename nested KiCad symbol unit names.
 * Update the symbol `Footprint` property.
+* Detect existing symbol `Footprint` properties when the footprint import action was skipped.
+* Prompt to clear stale symbol `Footprint` properties.
 * Add hidden import/review metadata to the parent symbol.
 * Preserve the original source symbol file.
 * Write the edited preview symbol into the temporary extraction/staging folder.
@@ -359,8 +363,6 @@ Normal output is intentionally limited to user decisions, safety confirmations, 
 ## Current Limitations
 
 The tool currently does not:
-* clear stale footprint 3D model references when model import is skipped
-* clear stale symbol Footprint properties when footprint import is skipped
 * permanently delete imported source files
 * import from a loose folder of files
 * overwrite existing footprint/model files

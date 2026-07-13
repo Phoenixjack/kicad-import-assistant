@@ -4,13 +4,21 @@ KiCad Import Assistant is a standalone Python utility for importing vendor-provi
 
 The tool is designed around a cautious workflow: preview first, review planned actions, confirm selected writes, create backups where needed, and refuse unsafe overwrites.
 
-**Unreleased V0.15.0 public/private config split branch**
+**Unreleased V0.16.0 stale reference cleanup branch**
 
-Current development branch: `feature/split-public-private-config`
+Current development branch: `feature/stale-reference-cleanup`
+
+## V0.16 stale reference cleanup branch note
+
+The `feature/stale-reference-cleanup` branch builds on the public/private config split and adds explicit cleanup prompts for stale references when related import actions are skipped.
+
+When a footprint is imported but the 3D model action is skipped, the importer detects existing vendor 3D model references in the copied footprint and asks whether to clear them.
+
+When a symbol is merged but the footprint action is skipped, the importer detects an existing symbol `Footprint` property and asks whether to clear it.
 
 ## V0.15 public/private config split branch note
 
-The `feature/split-public-private-config` branch separates public factory defaults from ignored local/private data.
+The earlier `feature/split-public-private-config` branch separated public factory defaults from ignored local/private data.
 
 The importer now uses:
 
@@ -67,9 +75,11 @@ KiCad Import Assistant can currently:
   * internal footprint name
   * visible `Value` field
   * 3D model reference when a model was copied
+  * optional clearing of stale vendor 3D model references when model import was skipped
   * hidden import/review metadata
 * Create an edited symbol preview file when a symbol merge action is selected.
 * Update symbol names, nested KiCad unit names, and symbol `Footprint` properties.
+* Optionally clear stale symbol `Footprint` properties when footprint import was skipped.
 * Resolve the correct target `.kicad_sym` file.
 * Create a timestamped backup of the target symbol library before symbol merge.
 * Merge the previewed symbol into the target symbol library when safety checks pass.
@@ -300,8 +310,6 @@ The tool currently does not:
 * auto-create missing target symbol libraries
 * link an existing symbol to a newly imported footprint
 * link an existing 3D model to a newly imported footprint
-* clear stale footprint 3D model references when model import is skipped
-* clear stale symbol Footprint properties when footprint import is skipped
 * guarantee that symbol `Footprint` properties point to an already-existing footprint when the footprint action is skipped
 * perform full KiCad S-expression validation
 * guarantee 3D model orientation

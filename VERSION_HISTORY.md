@@ -1,5 +1,40 @@
 # Version History
 
+## Unreleased - V0.16.0 Stale Reference Cleanup
+
+Feature branch: `feature/stale-reference-cleanup`
+
+Adds explicit cleanup prompts for stale references when related per-item import actions are skipped.
+
+Changes:
+* Detects existing footprint 3D model references when a footprint is imported but the model action is skipped.
+* Prompts the user to clear stale vendor 3D model references from the copied footprint.
+* Removes all detected footprint `(model ...)` blocks when the user confirms stale model-reference cleanup.
+* Detects existing symbol `Footprint` properties when a symbol is merged but the footprint action is skipped.
+* Prompts the user to clear stale symbol `Footprint` properties.
+* Clears the preview symbol `Footprint` property before merge when the user confirms stale symbol-reference cleanup.
+* Tracks cleared, present, and left-unchanged reference cleanup state in `run_state`.
+* Reports reference cleanup status in the final import summary.
+* Bumps app version to `0.16.0`.
+* Keeps existing overwrite protection, symbol merge backup behavior, source archiving behavior, and public/private config behavior intact.
+
+Tested:
+* `python -m py_compile kicad_import_assistant.py` passes.
+* `python -m compileall -f -q kia kicad_import_assistant.py` passes.
+* Direct helper checks pass for symbol preview `update`, `clear`, and `leave` modes.
+* Direct helper checks pass for detecting and clearing multiple footprint model blocks with quoted and unquoted model paths.
+* Automated full loose-file import workflow passes.
+* Automated skip-model workflow passes and clears stale footprint 3D model references.
+* Automated skip-footprint workflow passes and clears stale symbol `Footprint` property.
+* Automated workflow tests restore the selected `_test*.pretty` library and private config after completion.
+
+Current limitations:
+* Per-item overwrite is not active yet.
+* Symbol replacement is not active yet.
+* Existing footprint/model targets can be skipped, but not overwritten.
+* Missing target symbol libraries are not auto-created yet.
+* Clearing stale references is prompt-driven; the importer does not validate whether a kept reference points to an existing KiCad asset.
+
 ## Unreleased - V0.15.0 Split Public Defaults and Private Data
 
 Feature branch: `feature/split-public-private-config`

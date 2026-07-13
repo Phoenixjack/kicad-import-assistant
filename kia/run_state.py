@@ -146,6 +146,10 @@ def initialize_run_state() -> dict:
             "model_reference_updated": False,
             "model_reference_added": False,
             "metadata_added": False,
+            "model_reference_present": False,
+            "model_reference_original": None,
+            "model_reference_cleared": False,
+            "model_reference_left_unchanged": False,
         },
 
         # Third write stage: create edited symbol preview only.
@@ -163,6 +167,11 @@ def initialize_run_state() -> dict:
             "footprint_property_updated": False,
             "metadata_added": False,
             "merge_precheck": None,
+            "footprint_property_present": False,
+            "footprint_property_original": None,
+            "footprint_property_action": None,
+            "footprint_property_cleared": False,
+            "footprint_property_left_unchanged": False,
         },
 
         # Fourth write stage: merge edited symbol preview into target library.

@@ -69,6 +69,42 @@ def print_final_import_summary(run_state: dict) -> dict:
         print("  Symbol:    SKIPPED")
 
     print()
+    print("Reference cleanup:")
+
+    footprint_update = run_state.get("footprint_update", {})
+    symbol_preview = run_state.get("symbol_preview", {})
+
+    if footprint_was_imported:
+        if footprint_update.get("model_reference_updated"):
+            print("  Footprint 3D model reference: updated")
+        elif footprint_update.get("model_reference_added"):
+            print("  Footprint 3D model reference: added")
+        elif footprint_update.get("model_reference_cleared"):
+            print("  Footprint 3D model reference: cleared")
+        elif footprint_update.get("model_reference_left_unchanged"):
+            print("  Footprint 3D model reference: left unchanged")
+        elif footprint_update.get("model_reference_present"):
+            print("  Footprint 3D model reference: present")
+        else:
+            print("  Footprint 3D model reference: not present")
+    else:
+        print("  Footprint 3D model reference: not applicable")
+
+    if symbol_was_merged:
+        if symbol_preview.get("footprint_property_updated"):
+            print("  Symbol Footprint property: updated")
+        elif symbol_preview.get("footprint_property_cleared"):
+            print("  Symbol Footprint property: cleared")
+        elif symbol_preview.get("footprint_property_left_unchanged"):
+            print("  Symbol Footprint property: left unchanged")
+        elif symbol_preview.get("footprint_property_present"):
+            print("  Symbol Footprint property: present")
+        else:
+            print("  Symbol Footprint property: not present")
+    else:
+        print("  Symbol Footprint property: not applicable")
+
+    print()
     print("Safety artifacts:")
 
     if symbol_backup is not None:

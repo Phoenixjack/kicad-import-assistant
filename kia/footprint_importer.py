@@ -347,6 +347,165 @@ def update_footprint_model_path(
     return "added"
 
 
+def find_matching_s_expression_end(text: str, start_index: int) -> int | None:
+    """
+    Return the index just after the matching closing parenthesis for the
+    S-expression starting at start_index.
+
+    Handles quoted strings well enough for KiCad footprint/model blocks.
+    """
+    depth = 0
+    in_quote = False
+    escaped = False
+
+    for index in range(start_index, len(text)):
+        character = text[index]
+
+        if in_quote:
+            if escaped:
+                escaped = False
+            elif character == "\\":
+                escaped = True
+            elif character == '"':
+                in_quote = False
+
+            continue
+
+        if character == '"':
+            in_quote = True
+            continue
+
+        if character == "(":
+            depth += 1
+            continue
+
+        if character == ")":
+            depth -= 1
+
+            if depth == 0:
+                return index + 1
+
+    return None
+
+
+def extract_model_path_from_block(model_block: str) -> str:
+    """
+    Extract the model path from a KiCad model block.
+
+    Supports:
+      (model "path/to/model.step"
+      (model path/to/model.step
+    """
+    match = re.search(
+        pattern=r'\(\s*model\s+("[^"]+"|[^\s\)]+)',
+        string=model_block,
+    )
+
+    if not match:
+        return ""
+
+    model_path = match.group(1).strip()
+
+    if model_path.startswith('"') and model_path.endswith('"'):
+        model_path = model_path[1:-1]
+
+    return model_path
+
+
+def find_footprint_model_blocks(footprint_text: str) -> list[dict]:
+    """
+    Find KiCad 3D model blocks inside a footprint file.
+    """
+    model_blocks = []
+
+    for match in re.finditer(r'\(\s*model\b', footprint_text):
+        start_index = match.start()
+        end_index = find_matching_s_expression_end(
+            text=footprint_text,
+            start_index=start_index,
+        )
+
+        if end_index is None:
+            continue
+
+        model_block = footprint_text[start_index:end_index]
+
+        model_blocks.append(
+            {
+                "start": start_index,
+                "end": end_index,
+                "text": model_block,
+                "model_path": extract_model_path_from_block(model_block),
+            }
+        )
+
+    return model_blocks
+
+
+def detect_footprint_model_reference(footprint_path: Path) -> dict:
+    """
+    Detect existing 3D model references in a footprint file.
+    """
+    text = footprint_path.read_text(encoding="utf-8")
+    model_blocks = find_footprint_model_blocks(text)
+
+    model_paths = [
+        block.get("model_path", "")
+        for block in model_blocks
+        if block.get("model_path", "")
+    ]
+
+    first_model_path = model_paths[0] if model_paths else ""
+
+    return {
+        "found": len(model_blocks) > 0,
+        "count": len(model_blocks),
+        "first_model_path": first_model_path,
+        "model_paths": model_paths,
+    }
+
+
+def clear_footprint_model_references(footprint_path: Path) -> dict:
+    """
+    Remove all 3D model blocks from a footprint file.
+    """
+    text = footprint_path.read_text(encoding="utf-8")
+    model_blocks = find_footprint_model_blocks(text)
+
+    if not model_blocks:
+        return {
+            "cleared": False,
+            "removed_count": 0,
+            "model_paths": [],
+        }
+
+    model_paths = [
+        block.get("model_path", "")
+        for block in model_blocks
+        if block.get("model_path", "")
+    ]
+
+    updated_text = text
+
+    for block in reversed(model_blocks):
+        start_index = block["start"]
+        end_index = block["end"]
+
+        # Remove a trailing newline after the model block when present.
+        if end_index < len(updated_text) and updated_text[end_index] == "\n":
+            end_index += 1
+
+        updated_text = updated_text[:start_index] + updated_text[end_index:]
+
+    footprint_path.write_text(updated_text, encoding="utf-8")
+
+    return {
+        "cleared": True,
+        "removed_count": len(model_blocks),
+        "model_paths": model_paths,
+    }
+
+
 def copy_selected_import_files(
     selected_files: dict,
     library_root: Path,
