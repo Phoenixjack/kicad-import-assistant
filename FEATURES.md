@@ -2,9 +2,9 @@
 
 This file describes the current capabilities and known limitations of KiCad Import Assistant.
 
-Current version: **Unreleased V0.16.0 stale reference cleanup branch**
+Current version: **Unreleased V0.17.0 missing symbol library creation branch**
 
-Current development branch: `feature/stale-reference-cleanup`
+Current development branch: `feature/create-missing-symbol-library`
 
 ## Import Source Handling
 
@@ -94,6 +94,7 @@ The tool can:
 * Scan the target `.pretty` folder for symbol libraries.
 * Ignore backup/copy-style `.kicad_sym` files during symbol target resolution.
 * Prefer a symbol library that matches the target `.pretty` folder name.
+* Create a missing target `.kicad_sym` library when a symbol merge is selected.
 
 Example:
 ```text
@@ -281,16 +282,20 @@ After final selected-actions confirmation, when a symbol merge action remains, t
 
 Before merging, the tool:
 * Confirms that a target symbol library was resolved.
-* Confirms that the target symbol library exists.
+* Creates the target symbol library if it does not already exist.
+* Confirms that the target symbol library exists before merge.
 * Checks whether the generated symbol name already exists.
 * Refuses duplicate symbol merges.
-* Creates a timestamped backup of the target symbol library.
+* Creates a timestamped backup of existing target symbol libraries.
+* Skips backup when the target symbol library was newly created by the same import.
 
 The merge inserts the edited symbol block into the target symbol library before the final library closing parenthesis.
 
 ## Backup Behavior
 
-Before modifying a target symbol library, the tool creates a timestamped backup.
+Before modifying an existing target symbol library, the tool creates a timestamped backup.
+
+If the importer creates a new empty target symbol library during the same import, backup is skipped because there is no pre-existing user data to preserve.
 
 Backup filenames intentionally do not end with `.kicad_sym` so the resolver does not mistake them for active KiCad symbol libraries.
 
@@ -369,7 +374,6 @@ The tool currently does not:
 * overwrite existing symbol definitions
 * replace existing symbol definitions
 * perform per-item overwrite/replace actions
-* auto-create missing target symbol libraries
 * link an existing symbol to a newly imported footprint
 * link an existing 3D model to a newly imported footprint
 * guarantee that symbol `Footprint` properties point to an already-existing footprint when the footprint action is skipped
@@ -388,7 +392,6 @@ Human review is still required.
 ## Near-Term Goals
 
 Planned near-term work:
-* Add missing target symbol library creation.
 * Add per-item overwrite/replace actions with explicit backup behavior.
 * Add workflows for linking existing symbols/models to newly imported footprints.
 * Continue polishing normal/debug output boundaries as new workflow stages are added.

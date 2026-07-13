@@ -187,6 +187,8 @@ def initialize_run_state() -> dict:
             "merged_symbol_name": None,
             "merge_result": None,
             "precheck": None,
+            "target_symbol_library_created": False,
+            "target_symbol_library_create_status": None,
         },
 
         # Planned import actions before anything is written.

@@ -1,5 +1,37 @@
 # Version History
 
+## Unreleased - V0.17.0 Missing Symbol Library Creation
+
+Feature branch: `feature/create-missing-symbol-library`
+
+Creates a target `.kicad_sym` library when a symbol merge is selected and no active symbol library exists in the target `.pretty` folder.
+
+Changes:
+* Resolves a missing configured target symbol library path without writing before final confirmation.
+* Falls back to a target `.kicad_sym` filename matching the selected `.pretty` folder when no configured symbol file and no active symbol libraries exist.
+* Creates the missing target symbol library after final selected-actions confirmation and before symbol merge precheck.
+* Builds a minimal empty KiCad symbol library using the existing `kicad_symbol_lib` wrapper.
+* Keeps using existing symbol libraries when one can be resolved.
+* Keeps timestamped backups for pre-existing target symbol libraries.
+* Skips symbol-library backup when the target library was newly created by the same import.
+* Tracks missing-symbol-library creation state in `run_state`.
+* Updates symbol action prompts so missing target symbol libraries can be created and merged instead of forcing symbol skip.
+* Bumps app version to `0.17.0`.
+
+Tested:
+* `python -m py_compile kicad_import_assistant.py` passes.
+* `python -m compileall -f -q kia kicad_import_assistant.py` passes.
+* `git diff --check` passes.
+* Direct resolver checks confirm missing symbol library paths are resolved without writing before confirmation.
+* Direct creation checks confirm empty target symbol libraries pass merge preconditions.
+* Controlled workflow test confirms a missing `_test*.pretty` symbol library is created, merged into, and restored afterward.
+
+Current limitations:
+* Per-item overwrite is not active yet.
+* Symbol replacement is not active yet.
+* Existing footprint/model targets can be skipped, but not overwritten.
+* The importer still requires the target `.pretty` folder itself to exist.
+
 ## Unreleased - V0.16.0 Stale Reference Cleanup
 
 Feature branch: `feature/stale-reference-cleanup`

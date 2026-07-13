@@ -510,6 +510,7 @@ def resolve_target_library(run_state: dict) -> dict:
     run_state["current"]["target_library"] = target_library
     run_state["current"]["target_footprint_dir"] = target_footprint_dir
     run_state["current"]["target_symbol_file"] = target_symbol_file
+    run_state["current"]["target_symbol_resolution_status"] = symbol_resolution_status
 
     run_state["profile"]["suggested_profile"] = suggested_profile
     run_state["profile"]["autosuggested"] = suggested_profile is not None

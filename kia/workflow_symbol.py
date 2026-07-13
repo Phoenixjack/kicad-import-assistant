@@ -18,6 +18,7 @@ from kia.symbol_editor import (
     create_symbol_library_backup,
     merge_symbol_preview_into_target,
 )
+from kia.symbol_resolver import create_empty_symbol_library
 
 
 def footprint_import_was_selected(run_state: dict) -> bool:
@@ -200,6 +201,42 @@ def create_symbol_preview_stage(run_state: dict) -> dict:
             failure_reason="Symbol preview file was not created.",
             severity=Severity.ERROR,
         )
+
+    if target_symbol_file is None:
+        return mark_failure(
+            run_state,
+            script="kicad_import_assistant.py",
+            step="create_symbol_preview",
+            function_name="create_symbol_preview_stage",
+            failure_reason="Cannot create symbol preview because target symbol library path is missing.",
+            severity=Severity.ERROR,
+        )
+
+    target_symbol_file = Path(target_symbol_file)
+
+    if not target_symbol_file.exists():
+        created_symbol_file, create_status = create_empty_symbol_library(
+            target_symbol_file,
+        )
+
+        run_state["symbol_merge"]["target_symbol_library_created"] = (
+            created_symbol_file is not None
+        )
+        run_state["symbol_merge"]["target_symbol_library_create_status"] = create_status
+
+        if created_symbol_file is None:
+            return mark_failure(
+                run_state,
+                script="kicad_import_assistant.py",
+                step="create_symbol_preview",
+                function_name="create_symbol_preview_stage",
+                failure_reason=(
+                    "Failed to create missing target symbol library.\n"
+                    f"Target: {target_symbol_file}\n"
+                    f"Reason: {create_status}"
+                ),
+                severity=Severity.ERROR,
+            )
 
     merge_precheck = check_symbol_merge_preconditions(
         target_symbol_file=target_symbol_file,
@@ -400,6 +437,24 @@ def backup_target_symbol_library(run_state: dict) -> dict:
             function_name="backup_target_symbol_library",
             failure_reason="Cannot backup symbol library because symbol merge was not confirmed.",
             severity=Severity.ERROR,
+        )
+
+    if run_state["symbol_merge"].get("target_symbol_library_created"):
+        run_state["symbol"]["library_backed_up"] = True
+        run_state["symbol_merge"]["backup_path"] = None
+        run_state["symbol_merge"]["precheck"] = {
+            "target_symbol_file_exists": True,
+            "target_symbol_already_exists": False,
+            "symbol_merge_precheck_passed": True,
+            "reason": "Backup skipped because target symbol library was created by this import.",
+        }
+
+        return mark_success(
+            run_state,
+            script="kicad_import_assistant.py",
+            step="backup_target_symbol_library",
+            function_name="backup_target_symbol_library",
+            message="Symbol backup skipped because target symbol library was newly created.",
         )
 
     target_symbol_file = run_state["current"]["target_symbol_file"]

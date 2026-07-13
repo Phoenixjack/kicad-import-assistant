@@ -6,6 +6,40 @@ from kia.debug import (
 )
 
 
+def build_empty_symbol_library_text() -> str:
+    """
+    Build the smallest valid KiCad symbol library the importer can merge into.
+    """
+    return (
+        "(kicad_symbol_lib\n"
+        "  (version 20230121)\n"
+        '  (generator "kicad-import-assistant")\n'
+        ")\n"
+    )
+
+
+def create_empty_symbol_library(symbol_file_path: Path) -> tuple[Path | None, str]:
+    """
+    Create an empty target .kicad_sym file without overwriting an existing file.
+    """
+    if symbol_file_path.exists():
+        return symbol_file_path, "symbol file already exists"
+
+    try:
+        symbol_file_path.write_text(
+            build_empty_symbol_library_text(),
+            encoding="utf-8",
+        )
+
+    except OSError as error:
+        return (
+            None,
+            f"failed to create symbol library: {error}",
+        )
+
+    return symbol_file_path, "created empty symbol library"
+
+
 def resolve_target_symbol_file(
     target_footprint_dir: Path,
     library_settings: dict,
@@ -17,7 +51,8 @@ def resolve_target_symbol_file(
     1. Use configured symbol_file if it exists.
     2. If configured file does not exist, scan the target .pretty folder.
     3. If exactly one .kicad_sym file is found, use it.
-    4. If none or multiple are found, return the configured path or None with a status message.
+    4. If none are found, return the configured path or folder-matching path.
+    5. If multiple are found, return the configured path or None with a status message.
 
     Returns:
         (resolved_path, resolution_status)
@@ -90,12 +125,12 @@ def resolve_target_symbol_file(
         if configured_path is not None:
             return (
                 configured_path,
-                "configured symbol file does not exist and no .kicad_sym files were found",
+                "configured symbol file does not exist; it will be created if symbol merge is selected",
             )
 
         return (
-            None,
-            "no configured symbol file and no .kicad_sym files were found",
+            target_footprint_dir / preferred_symbol_name,
+            "no configured symbol file and no .kicad_sym files were found; folder-matching symbol file will be created if symbol merge is selected",
         )
 
     if configured_path is not None:

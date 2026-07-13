@@ -187,15 +187,28 @@ def prompt_import_plan_item_choice(
 
     target_exists = target_path is not None and target_path.exists()
     
-    if file_type == "symbol" and not target_exists:
+    if file_type == "symbol" and target_path is None:
         print()
-        print("  Target symbol library does not exist.")
-        print("  Symbol merge is not supported unless the target symbol library already exists.")
-        print("  Auto-creating missing symbol libraries is planned for a future branch.")
+        print("  Target symbol library could not be resolved.")
 
         response = input("Skip symbol? [Y/n]: ").strip().lower()
 
         if response in ["", "y", "yes"]:
+            return "skip"
+
+        return "stop"
+
+    if file_type == "symbol" and not target_exists:
+        print()
+        print("  Target symbol library does not exist.")
+        print("  It will be created before merge if you continue.")
+
+        response = input("Create target symbol library and merge symbol? [Y/n]: ").strip().lower()
+
+        if response in ["", "y", "yes"]:
+            return "keep"
+
+        if response in ["n", "no", "s", "skip"]:
             return "skip"
 
         return "stop"
