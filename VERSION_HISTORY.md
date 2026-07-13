@@ -1,5 +1,38 @@
 # Version History
 
+## Unreleased - V0.18.0 Per-Item Replace Actions
+
+Feature branch: `feature/per-item-replace-actions`
+
+Adds explicit per-item replacement choices for existing footprint, model, and symbol targets. Replacement defaults to skip and only runs when the user explicitly chooses it.
+
+Changes:
+* Detects existing footprint and model target files during per-item action selection.
+* Prompts to replace existing footprint/model targets with `[y/N]` defaulting to skip.
+* Creates timestamped backups before replacing existing footprint/model files.
+* Detects existing symbol definitions in the target symbol library during action selection.
+* Prompts to replace existing symbol definitions with `[y/N]` defaulting to skip.
+* Allows selected symbol replacement to pass preview and merge prechecks.
+* Replaces the existing symbol block with the edited preview symbol when replacement is selected.
+* Creates the existing target symbol library backup before symbol replacement.
+* Updates selected-action confirmation text to distinguish import, merge, replace, and skip actions.
+* Tracks replacement action states in the import plan.
+* Bumps app version to `0.18.0`.
+
+Tested:
+* `python -m py_compile kicad_import_assistant.py` passes.
+* `python -m compileall -f -q kia kicad_import_assistant.py` passes.
+* `git diff --check` passes.
+* Direct helper checks confirm footprint/model replacement backup path behavior.
+* Direct helper checks confirm symbol block replacement preserves unrelated symbols.
+* Controlled workflow test confirms selected footprint, model, and symbol replacement creates backups and replaces target content.
+* Default-skip check confirms an existing footprint target is skipped when the user presses Enter.
+
+Current limitations:
+* Existing-target replacement is prompt-driven; there is no bulk replace-all mode.
+* The importer still requires the target `.pretty` folder itself to exist.
+* Linking existing symbols/models to newly imported footprints is not active yet.
+
 ## Unreleased - V0.17.0 Missing Symbol Library Creation
 
 Feature branch: `feature/create-missing-symbol-library`

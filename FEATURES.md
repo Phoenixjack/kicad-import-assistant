@@ -2,9 +2,9 @@
 
 This file describes the current capabilities and known limitations of KiCad Import Assistant.
 
-Current version: **Unreleased V0.17.0 missing symbol library creation branch**
+Current version: **Unreleased V0.18.0 per-item replace actions branch**
 
-Current development branch: `feature/create-missing-symbol-library`
+Current development branch: `feature/per-item-replace-actions`
 
 ## Import Source Handling
 
@@ -154,21 +154,26 @@ Example:
 CONN_HDMI_RCPT_SMD_V_19P_P0.50_SS53000_SS-53000-003
 ```
 
-## Per-Item Import Actions
+## Per-Item Import/Replace Actions
 
-The importer can let the user keep or skip individual planned import actions before target-library writes occur.
+The importer can let the user keep, replace, or skip individual planned import actions before target-library writes occur.
 
 Supported per-item choices:
-* import or skip footprint
-* import or skip 3D model
-* merge or skip symbol
+* import, replace, or skip footprint
+* import, replace, or skip 3D model
+* merge, replace, or skip symbol
 
 Skipped items are marked as `SKIPPED_BY_USER` in the import plan and are ignored by later workflow stages.
 
+Replacement items are marked as `REPLACE_PENDING` in the import plan until the write stage completes.
+
 Current behavior:
 * Existing footprint/model targets are detected during action selection.
-* Overwrite is not supported yet.
-* Existing footprint/model targets can be skipped safely.
+* Existing footprint/model targets default to skip unless the user explicitly chooses replace.
+* Existing footprint/model targets are backed up before overwrite.
+* Existing symbol definitions are detected inside the target symbol library.
+* Existing symbol definitions default to skip unless the user explicitly chooses replace.
+* Symbol replacement backs up the target symbol library before modification.
 * Skipped items are excluded from the preview manifest.
 * Skipped loose source files are not archived after import.
 * Final import summary reports skipped items correctly.
@@ -181,6 +186,7 @@ This allows workflows such as:
 * merge symbol only
 * import model only
 * skip an already-existing footprint while importing the matching model and symbol
+* replace an existing footprint, model, and/or symbol after explicit confirmation
 * skip all planned actions and exit cleanly before writes
 
 ## Selected-Actions Execution Confirmation
@@ -194,6 +200,8 @@ The confirmation summarizes:
 * source paths for selected actions
 * target paths for selected actions
 * safety behavior
+
+Replacement actions are shown as replacement actions in this final confirmation before target-library writes occur.
 
 The final prompt is:
 ```text
@@ -237,7 +245,9 @@ Model target paths preserve the selected model extension, so `.step` and `.stp` 
 After final selected-actions confirmation, when footprint/model copy actions remain, the tool can:
 * Copy and rename the selected footprint file.
 * Copy and rename the selected STEP/STP model file.
-* Refuse to overwrite existing footprint/model files.
+* Replace selected existing footprint/model files after explicit per-item confirmation.
+* Create timestamped backups of existing footprint/model files before replacement.
+* Refuse unconfirmed footprint/model overwrites.
 * Update the copied footprint internal name.
 * Update the copied footprint visible `Value` field.
 * Add or update a 3D model reference when a model was copied.
@@ -285,11 +295,11 @@ Before merging, the tool:
 * Creates the target symbol library if it does not already exist.
 * Confirms that the target symbol library exists before merge.
 * Checks whether the generated symbol name already exists.
-* Refuses duplicate symbol merges.
+* Refuses duplicate symbol merges unless explicit replacement was selected.
 * Creates a timestamped backup of existing target symbol libraries.
 * Skips backup when the target symbol library was newly created by the same import.
 
-The merge inserts the edited symbol block into the target symbol library before the final library closing parenthesis.
+The merge inserts the edited symbol block into the target symbol library before the final library closing parenthesis. When replacement is selected, the existing symbol block is replaced with the edited preview symbol.
 
 ## Backup Behavior
 
@@ -298,6 +308,8 @@ Before modifying an existing target symbol library, the tool creates a timestamp
 If the importer creates a new empty target symbol library during the same import, backup is skipped because there is no pre-existing user data to preserve.
 
 Backup filenames intentionally do not end with `.kicad_sym` so the resolver does not mistake them for active KiCad symbol libraries.
+
+Before replacing an existing footprint or model file, the tool creates a timestamped `.backup` copy beside the target file.
 
 Example:
 ```text
@@ -370,10 +382,6 @@ Normal output is intentionally limited to user decisions, safety confirmations, 
 The tool currently does not:
 * permanently delete imported source files
 * import from a loose folder of files
-* overwrite existing footprint/model files
-* overwrite existing symbol definitions
-* replace existing symbol definitions
-* perform per-item overwrite/replace actions
 * link an existing symbol to a newly imported footprint
 * link an existing 3D model to a newly imported footprint
 * guarantee that symbol `Footprint` properties point to an already-existing footprint when the footprint action is skipped
@@ -392,7 +400,6 @@ Human review is still required.
 ## Near-Term Goals
 
 Planned near-term work:
-* Add per-item overwrite/replace actions with explicit backup behavior.
 * Add workflows for linking existing symbols/models to newly imported footprints.
 * Continue polishing normal/debug output boundaries as new workflow stages are added.
 

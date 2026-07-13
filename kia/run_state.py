@@ -189,6 +189,7 @@ def initialize_run_state() -> dict:
             "precheck": None,
             "target_symbol_library_created": False,
             "target_symbol_library_create_status": None,
+            "replacement_selected": False,
         },
 
         # Planned import actions before anything is written.

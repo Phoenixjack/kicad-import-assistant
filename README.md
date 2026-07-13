@@ -48,8 +48,9 @@ KiCad Import Assistant can currently:
 * Detect possible existing imports by early MPN search.
 * Create an import plan.
 * Review planned footprint, model, and symbol actions before import.
-* Skip individual footprint, model, or symbol actions before target-library writes.
-* Avoid duplicate target writes by skipping existing footprint/model targets.
+* Import/merge, replace, or skip individual footprint, model, or symbol actions before target-library writes.
+* Default to skipping existing targets unless replacement is explicitly selected.
+* Back up existing footprint/model targets before replacement.
 * Create and optionally write a preview import-plan CSV.
 * Exclude skipped items from the preview import-plan CSV.
 * Preserve `.step` and `.stp` model suffixes in preview manifest target paths.
@@ -68,9 +69,9 @@ KiCad Import Assistant can currently:
 * Create a missing target `.kicad_sym` library when a symbol merge is selected.
 * Create a timestamped backup of the target symbol library before symbol merge.
 * Skip symbol-library backup when the target symbol library was newly created by the same import.
-* Merge the previewed symbol into the target symbol library when safety checks pass.
-* Refuse duplicate footprint/model overwrites.
-* Refuse duplicate symbol merges.
+* Merge or replace the previewed symbol in the target symbol library when safety checks pass.
+* Refuse unconfirmed footprint/model overwrites.
+* Refuse unconfirmed duplicate symbol merges.
 * Save successful run state back to config.
 * Clean up temporary extraction/staging folders when `keep_temp_files` is false.
 * Print a final import summary.
@@ -102,9 +103,9 @@ The current staged workflow is:
 11. Generate the final basename.
 12. Create the import plan.
 13. Choose per-item import actions:
-    * footprint import or skip
-    * model import or skip
-    * symbol merge or skip
+    * footprint import, replace, or skip
+    * model import, replace, or skip
+    * symbol merge, replace, or skip
 14. Optionally write a preview import-plan CSV.
 15. Show one final selected-actions confirmation.
 16. Stop before writes if the user declines final confirmation.
@@ -290,9 +291,6 @@ python kicad_import_assistant.py
 The tool currently does not:
 * permanently delete imported source files
 * import from a loose folder of files
-* overwrite existing footprint/model files
-* overwrite or replace existing symbol definitions
-* perform per-item overwrite/replace actions
 * link an existing symbol to a newly imported footprint
 * link an existing 3D model to a newly imported footprint
 * guarantee that symbol `Footprint` properties point to an already-existing footprint when the footprint action is skipped
@@ -311,7 +309,6 @@ Human review is still required.
 ## Near-Term Goals
 
 Planned near-term work:
-* Add per-item overwrite/replace actions with explicit backup behavior.
 * Add workflows for linking existing symbols/models to newly imported footprints.
 * Continue polishing normal/debug output boundaries as new workflow stages are added.
 

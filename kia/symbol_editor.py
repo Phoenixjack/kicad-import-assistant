@@ -479,6 +479,56 @@ def extract_first_symbol_block(symbol_text: str) -> tuple[str, bool]:
     return "", False
 
 
+def find_symbol_block_bounds(
+    symbol_text: str,
+    symbol_name: str,
+) -> tuple[int | None, int | None]:
+    """
+    Find the complete top-level symbol block for symbol_name.
+    """
+    match = re.search(
+        pattern=rf'\(symbol\s+"{re.escape(symbol_name)}"',
+        string=symbol_text,
+    )
+
+    if not match:
+        return None, None
+
+    symbol_start = match.start()
+    depth = 0
+    in_string = False
+    escape_next = False
+
+    for index in range(symbol_start, len(symbol_text)):
+        character = symbol_text[index]
+
+        if escape_next:
+            escape_next = False
+            continue
+
+        if character == "\\":
+            escape_next = True
+            continue
+
+        if character == '"':
+            in_string = not in_string
+            continue
+
+        if in_string:
+            continue
+
+        if character == "(":
+            depth += 1
+
+        elif character == ")":
+            depth -= 1
+
+            if depth == 0:
+                return symbol_start, index + 1
+
+    return None, None
+
+
 def merge_symbol_preview_into_target(
     preview_symbol_file: Path,
     target_symbol_file: Path,
@@ -545,5 +595,67 @@ def merge_symbol_preview_into_target(
 
     return result
 
+
+def replace_symbol_preview_in_target(
+    preview_symbol_file: Path,
+    target_symbol_file: Path,
+    symbol_name: str,
+) -> dict:
+    """
+    Replace an existing symbol block in the target .kicad_sym library.
+    """
+    result = {
+        "symbol_merged": False,
+        "symbol_replaced": False,
+        "symbol_merge_reason": "",
+        "merged_symbol_name": symbol_name,
+    }
+
+    if not preview_symbol_file.exists():
+        result["symbol_merge_reason"] = "Preview symbol file does not exist."
+        return result
+
+    if not target_symbol_file.exists():
+        result["symbol_merge_reason"] = "Target symbol file does not exist."
+        return result
+
+    preview_text = preview_symbol_file.read_text(encoding="utf-8")
+    target_text = target_symbol_file.read_text(encoding="utf-8")
+
+    symbol_block, extracted = extract_first_symbol_block(preview_text)
+
+    if not extracted:
+        result["symbol_merge_reason"] = "Could not extract symbol block from preview file."
+        return result
+
+    start_index, end_index = find_symbol_block_bounds(
+        symbol_text=target_text,
+        symbol_name=symbol_name,
+    )
+
+    if start_index is None or end_index is None:
+        result["symbol_merge_reason"] = "Target symbol library does not contain this symbol."
+        return result
+
+    replacement_block = symbol_block.replace("\n", "\n  ")
+    updated_target_text = (
+        target_text[:start_index]
+        + replacement_block
+        + target_text[end_index:]
+    )
+
+    target_symbol_file.write_text(updated_target_text, encoding="utf-8")
+
+    result["symbol_merged"] = True
+    result["symbol_replaced"] = True
+    result["symbol_merge_reason"] = "Preview symbol replaced existing target symbol."
+
+    dbg_blank(Severity.VERBOSE, "symbols", "replace", "symbol_editor")
+    dbg_print("Replaced symbol in target library:", Severity.VERBOSE, "symbols", "replace", "symbol_editor")
+    dbg_print(f"Preview: {preview_symbol_file}", Severity.VERBOSE, "symbols", "replace", "symbol_editor")
+    dbg_print(f"Target: {target_symbol_file}", Severity.VERBOSE, "symbols", "replace", "symbol_editor")
+    dbg_print(f"Symbol: {symbol_name}", Severity.VERBOSE, "symbols", "replace", "symbol_editor")
+
+    return result
 
 

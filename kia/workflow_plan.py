@@ -11,6 +11,7 @@ from kia.import_plan import (
     create_preview_manifest,
     select_import_files,
 )
+from kia.symbol_editor import target_symbol_exists
 
 
 def select_files_for_import(run_state: dict) -> dict:
@@ -216,16 +217,38 @@ def prompt_import_plan_item_choice(
     if file_type in ["footprint", "model"] and target_exists:
         print()
         print("  Target already exists.")
-        print("  Overwrite is not supported in this version.")
+        print("  Replacement will back up the existing target before overwrite.")
 
-        response = input(f"Skip {file_type}? [Y/n]: ").strip().lower()
+        response = input(f"Replace existing {file_type}? [y/N]: ").strip().lower()
 
-        if response in ["", "y", "yes"]:
+        if response in ["y", "yes", "r", "replace"]:
+            return "replace"
+
+        if response in ["", "n", "no", "s", "skip"]:
             return "skip"
 
         return "stop"
 
     if file_type == "symbol":
+        if target_exists:
+            target_text = target_path.read_text(encoding="utf-8")
+            new_symbol_name = plan_item.get("new_filename", "")
+
+            if target_symbol_exists(target_text, new_symbol_name):
+                print()
+                print("  Target symbol library already contains this symbol.")
+                print("  Replacement will back up the symbol library before modifying it.")
+
+                response = input("Replace existing symbol? [y/N]: ").strip().lower()
+
+                if response in ["y", "yes", "r", "replace"]:
+                    return "replace"
+
+                if response in ["", "n", "no", "s", "skip"]:
+                    return "skip"
+
+                return "stop"
+
         response = input("Merge symbol? [Y/n]: ").strip().lower()
     else:
         response = input(f"Import {file_type}? [Y/n]: ").strip().lower()
@@ -243,8 +266,7 @@ def apply_import_plan_action_choices(run_state: dict) -> dict:
     """
     Let the user keep or skip individual planned import actions.
 
-    This does not add overwrite support.
-    Existing footprint/model targets can only be skipped or stop the run.
+    Existing targets can be replaced only after explicit per-item confirmation.
     """
     if not run_state["import_plan"]["is_complete"]:
         return mark_failure(
@@ -258,8 +280,7 @@ def apply_import_plan_action_choices(run_state: dict) -> dict:
 
     print()
     print("Choose import actions:")
-    print("  This version supports Import/Merge or Skip.")
-    print("  Overwrite/replace actions are not active yet.")
+    print("  This version supports Import/Merge, Replace, or Skip.")
 
     kept_count = 0
 
@@ -275,6 +296,11 @@ def apply_import_plan_action_choices(run_state: dict) -> dict:
         )
 
         if choice == "keep":
+            kept_count += 1
+            continue
+
+        if choice == "replace":
+            plan_item["action"] = "REPLACE_PENDING"
             kept_count += 1
             continue
 

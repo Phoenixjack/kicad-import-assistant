@@ -51,6 +51,16 @@ def describe_selected_action(file_type: str, plan_item: dict) -> str:
     if plan_item.get("action") == "SKIPPED_BY_USER":
         return "SKIP"
 
+    if plan_item.get("action") == "REPLACE_PENDING":
+        if file_type == "footprint":
+            return "REPLACE + UPDATE"
+
+        if file_type == "model":
+            return "REPLACE"
+
+        if file_type == "symbol":
+            return "REPLACE with backup"
+
     if file_type == "footprint":
         return "COPY_RENAME + UPDATE"
 
@@ -83,7 +93,8 @@ def print_selected_execution_actions(run_state: dict) -> None:
 
     print()
     print("Safety behavior:")
-    print("  - Existing footprint/model targets will not be overwritten.")
+    print("  - Existing targets are replaced only when explicitly selected.")
+    print("  - Replacement actions create backups before overwriting.")
     print("  - Symbol merge will create a timestamped backup.")
     print("  - Skipped items will not be imported or archived.")
 

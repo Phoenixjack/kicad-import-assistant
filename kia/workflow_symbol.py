@@ -17,6 +17,7 @@ from kia.symbol_editor import (
     check_symbol_merge_preconditions,
     create_symbol_library_backup,
     merge_symbol_preview_into_target,
+    replace_symbol_preview_in_target,
 )
 from kia.symbol_resolver import create_empty_symbol_library
 
@@ -243,6 +244,18 @@ def create_symbol_preview_stage(run_state: dict) -> dict:
         new_symbol_name=basename,
     )
 
+    symbol_replace_selected = (
+        run_state["import_plan"]["symbol"].get("action") == "REPLACE_PENDING"
+    )
+    run_state["symbol_merge"]["replacement_selected"] = symbol_replace_selected
+
+    if (
+        symbol_replace_selected
+        and merge_precheck.get("target_symbol_already_exists")
+    ):
+        merge_precheck["symbol_merge_precheck_passed"] = True
+        merge_precheck["reason"] = "Target symbol exists; replacement was selected."
+
     run_state["symbol_preview"]["source_symbol"] = preview_result.get("source_symbol")
     run_state["symbol_preview"]["preview_symbol"] = preview_result.get("preview_symbol")
     run_state["symbol_preview"]["old_symbol_name"] = preview_result.get("old_symbol_name")
@@ -299,7 +312,10 @@ def create_symbol_preview_stage(run_state: dict) -> dict:
         )
 
     run_state["symbol_preview"]["complete"] = True
-    run_state["import_plan"]["symbol"]["action"] = "PREVIEW_READY"
+    if symbol_replace_selected:
+        run_state["import_plan"]["symbol"]["action"] = "REPLACE_PREVIEW_READY"
+    else:
+        run_state["import_plan"]["symbol"]["action"] = "PREVIEW_READY"
     run_state["symbol_merge"]["preview_symbol_file"] = preview_result.get("preview_symbol")
     run_state["symbol_merge"]["target_symbol_file"] = target_symbol_file
     run_state["symbol_merge"]["merged_symbol_name"] = basename
@@ -475,6 +491,13 @@ def backup_target_symbol_library(run_state: dict) -> dict:
         new_symbol_name=basename,
     )
 
+    if (
+        run_state["symbol_merge"].get("replacement_selected")
+        and precheck.get("target_symbol_already_exists")
+    ):
+        precheck["symbol_merge_precheck_passed"] = True
+        precheck["reason"] = "Target symbol exists; replacement was selected."
+
     run_state["symbol_merge"]["precheck"] = precheck
 
     if not precheck.get("symbol_merge_precheck_passed"):
@@ -612,11 +635,18 @@ def merge_symbol_preview_stage(run_state: dict) -> dict:
     target_symbol_file = Path(target_symbol_file)
 
     try:
-        merge_result = merge_symbol_preview_into_target(
-            preview_symbol_file=preview_symbol_file,
-            target_symbol_file=target_symbol_file,
-            new_symbol_name=basename,
-        )
+        if run_state["symbol_merge"].get("replacement_selected"):
+            merge_result = replace_symbol_preview_in_target(
+                preview_symbol_file=preview_symbol_file,
+                target_symbol_file=target_symbol_file,
+                symbol_name=basename,
+            )
+        else:
+            merge_result = merge_symbol_preview_into_target(
+                preview_symbol_file=preview_symbol_file,
+                target_symbol_file=target_symbol_file,
+                new_symbol_name=basename,
+            )
 
     except Exception as error:
         return mark_failure(
@@ -650,6 +680,12 @@ def merge_symbol_preview_stage(run_state: dict) -> dict:
     dbg_print(f"Symbol: {basename}", Severity.INFO, "symbols", "merge", "workflow_symbol")
     dbg_print(f"Result: {merge_result.get('symbol_merge_reason')}", Severity.INFO, "symbols", "merge", "workflow_symbol")
     dbg_print(f"Backup: {run_state['symbol_merge']['backup_path']}", Severity.INFO, "symbols", "merge", "workflow_symbol")
+
+    if merge_result.get("symbol_replaced"):
+        run_state["import_plan"]["symbol"]["action"] = "REPLACED"
+    else:
+        run_state["import_plan"]["symbol"]["action"] = "MERGED"
+    run_state["symbol"]["merged"] = True
 
     return mark_success(
         run_state,

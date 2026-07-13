@@ -6,6 +6,7 @@ kia/workflow_footprint.py
 """
 
 import shutil
+from datetime import datetime
 from pathlib import Path
 
 from kia.app_info import APP_VERSION
@@ -70,6 +71,38 @@ def prompt_clear_stale_model_reference(model_reference_info: dict) -> bool:
     response = input("Clear stale 3D model reference(s)? [Y/n]: ").strip().lower()
 
     return response in ["", "y", "yes"]
+
+
+def build_replacement_backup_path(target_path: Path) -> Path:
+    """
+    Build a timestamped backup path for an existing footprint/model target.
+    """
+    timestamp = datetime.now().strftime("%Y%m%d_%H%M%S")
+    backup_name = f"{target_path.name}.{timestamp}.backup"
+    backup_path = target_path.with_name(backup_name)
+
+    if not backup_path.exists():
+        return backup_path
+
+    counter = 1
+
+    while True:
+        backup_name = f"{target_path.name}.{timestamp}.{counter}.backup"
+        backup_path = target_path.with_name(backup_name)
+
+        if not backup_path.exists():
+            return backup_path
+
+        counter += 1
+
+
+def backup_existing_target_file(target_path: Path) -> Path:
+    """
+    Back up an existing footprint/model target before replacement.
+    """
+    backup_path = build_replacement_backup_path(target_path)
+    shutil.copy2(target_path, backup_path)
+    return backup_path
 
 
 def confirm_file_copy_execution(run_state: dict) -> dict:
@@ -240,7 +273,10 @@ def copy_planned_footprint_and_model_files(run_state: dict) -> dict:
                 severity=Severity.ERROR,
             )
 
-        if target_path.exists():
+        replacement_selected = plan_item.get("action") == "REPLACE_PENDING"
+        backup_path = None
+
+        if target_path.exists() and not replacement_selected:
             return mark_failure(
                 run_state,
                 script="kicad_import_assistant.py",
@@ -252,6 +288,20 @@ def copy_planned_footprint_and_model_files(run_state: dict) -> dict:
                 ),
                 severity=Severity.WARNING,
             )
+
+        if target_path.exists() and replacement_selected:
+            try:
+                backup_path = backup_existing_target_file(target_path)
+
+            except Exception as error:
+                return mark_failure(
+                    run_state,
+                    script="kicad_import_assistant.py",
+                    step="copy_planned_files",
+                    function_name="copy_planned_footprint_and_model_files",
+                    failure_reason=f"Failed to back up existing {file_type} before replacement.\n{error}",
+                    severity=Severity.ERROR,
+                )
 
         try:
             shutil.copy2(source_path, target_path)
@@ -270,12 +320,17 @@ def copy_planned_footprint_and_model_files(run_state: dict) -> dict:
             "type": file_type,
             "source": source_path,
             "target": target_path,
+            "backup": backup_path,
+            "replaced_existing": replacement_selected,
         }
 
         copied_files.append(copied_row)
 
         run_state[file_type]["copied"] = True
-        run_state["import_plan"][file_type]["action"] = "COPIED_UNEDITED"
+        if replacement_selected:
+            run_state["import_plan"][file_type]["action"] = "REPLACED_UNEDITED"
+        else:
+            run_state["import_plan"][file_type]["action"] = "COPIED_UNEDITED"
 
     run_state["file_copy"]["copied_files"] = copied_files
     run_state["file_copy"]["complete"] = True
@@ -540,10 +595,16 @@ def update_copied_footprint_contents(run_state: dict) -> dict:
         )
 
     run_state["footprint_update"]["complete"] = True
-    run_state["import_plan"]["footprint"]["action"] = "COPIED_UPDATED"
+    if footprint_plan.get("action") == "REPLACED_UNEDITED":
+        run_state["import_plan"]["footprint"]["action"] = "REPLACED_UPDATED"
+    else:
+        run_state["import_plan"]["footprint"]["action"] = "COPIED_UPDATED"
 
     if target_model is not None:
-        run_state["import_plan"]["model"]["action"] = "COPIED_REFERENCED"
+        if model_plan.get("action") == "REPLACED_UNEDITED":
+            run_state["import_plan"]["model"]["action"] = "REPLACED_REFERENCED"
+        else:
+            run_state["import_plan"]["model"]["action"] = "COPIED_REFERENCED"
 
     dbg_blank(Severity.INFO, "importer", "footprint", "workflow_footprint")
     dbg_print("Footprint content updates:", Severity.INFO, "importer", "footprint", "workflow_footprint")
