@@ -13,6 +13,10 @@ import copy
 import json
 from pathlib import Path
 
+from kia.config_dialog import (
+    ensure_private_data_file_for_dialog,
+    open_private_data_config_dialog,
+)
 from kia.debug import dbg_print, Severity
 from kia.workflow_schema import load_naming_schema
 from kia.workflow_status import mark_success, mark_failure
@@ -244,7 +248,7 @@ def build_private_data_to_save(config: dict) -> dict:
     return private_data
 
 
-def load_config() -> dict:
+def load_config(*, show_startup_dialog: bool = True) -> dict:
     """
     Load runtime config from layered sources.
 
@@ -260,21 +264,51 @@ def load_config() -> dict:
     default_config = load_json_file(DEFAULT_CONFIG_PATH, required=False)
 
     if not PRIVATE_DATA_PATH.exists():
-        print()
-        print("ERROR: Private data file is missing.")
-        print()
-        print("Create a private data file before running the importer:")
-        print(f"  {PRIVATE_DATA_PATH}")
-        print()
-        print("Use this example as a template:")
-        print(f"  {PRIVATE_DATA_EXAMPLE_PATH}")
-        raise SystemExit
+        if not show_startup_dialog:
+            print()
+            print("ERROR: Private data file is missing.")
+            print()
+            print("Create a private data file before running the importer:")
+            print(f"  {PRIVATE_DATA_PATH}")
+            print()
+            print("Use this example as a template:")
+            print(f"  {PRIVATE_DATA_EXAMPLE_PATH}")
+            raise SystemExit
+
+        private_data_ready = ensure_private_data_file_for_dialog(
+            private_data_path=PRIVATE_DATA_PATH,
+            private_data_example_path=PRIVATE_DATA_EXAMPLE_PATH,
+        )
+
+        if not private_data_ready:
+            raise SystemExit
 
     private_data = load_json_file(PRIVATE_DATA_PATH, required=True)
 
     config = deep_merge_dicts(config, default_config)
     config = deep_merge_dicts(config, private_data)
     config = ensure_runtime_config_defaults(config)
+
+    if show_startup_dialog:
+        print()
+        print("Opening private data config dialog...")
+        print("If it is not visible, check behind other windows or the taskbar.")
+
+        dialog_result = open_private_data_config_dialog(
+            default_config=default_config,
+            private_data=private_data,
+            private_data_path=PRIVATE_DATA_PATH,
+        )
+
+        if dialog_result == "cancel":
+            raise SystemExit
+
+        if dialog_result == "save_continue":
+            private_data = load_json_file(PRIVATE_DATA_PATH, required=True)
+            config = copy.deepcopy(DEFAULT_CONFIG)
+            config = deep_merge_dicts(config, default_config)
+            config = deep_merge_dicts(config, private_data)
+            config = ensure_runtime_config_defaults(config)
 
     validate_runtime_config(config)
 
@@ -327,7 +361,7 @@ def load_runtime_config(run_state: dict) -> dict:
     - run_state["config"]
     """
     try:
-        general_config = load_config()
+        general_config = load_config(show_startup_dialog=True)
         naming_schema = load_naming_schema()
 
     except Exception as error:

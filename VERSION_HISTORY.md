@@ -1,5 +1,37 @@
 # Version History
 
+## Unreleased - V0.19.0 Private Data Config Dialog
+
+Feature branch: `feature/private-data-config-dialog`
+
+Adds a startup Tkinter dialog for reviewing and editing core private/local config before the import workflow begins.
+
+Changes:
+* Adds `kia/config_dialog.py`.
+* Opens a private-data config dialog after config files load and before source-file selection.
+* Allows editing startup paths, selected target library, and KiCad path variable.
+* Shows a read-only summary of the selected library profile.
+* Saves dialog changes only to `kicad_import_private_data.json`.
+* Allows continuing without saving or canceling startup.
+* Offers to create missing private data from `kicad_import_private_data.example.json`.
+* Reloads merged runtime config after dialog save.
+* Keeps public defaults, naming schema, and suggestion rules read-only for this branch.
+* Brings the startup dialog forward on Windows console launches.
+* Bumps app version to `0.19.0`.
+
+Tested:
+* `python -m py_compile kicad_import_assistant.py` passes.
+* `python -m compileall -f -q kia kicad_import_assistant.py` passes.
+* `git diff --check` passes.
+* Non-GUI validation helper check passes.
+* Manual startup check confirms the dialog appears on Windows after focus handling was adjusted.
+
+Current limitations:
+* Library-profile editing is not active yet.
+* API key editing is not active yet.
+* Recent-value maintenance is not active yet.
+* The dialog edits private data only.
+
 ## Unreleased - V0.18.0 Per-Item Replace Actions
 
 Feature branch: `feature/per-item-replace-actions`

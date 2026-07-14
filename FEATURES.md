@@ -2,9 +2,9 @@
 
 This file describes the current capabilities and known limitations of KiCad Import Assistant.
 
-Current version: **Unreleased V0.18.0 per-item replace actions branch**
+Current version: **Unreleased V0.19.0 private data config dialog branch**
 
-Current development branch: `feature/per-item-replace-actions`
+Current development branch: `feature/private-data-config-dialog`
 
 ## Import Source Handling
 
@@ -84,6 +84,33 @@ The older ZIP-only `zip_folder` key is no longer part of the active config contr
 The importer uses `last.target_library` as the canonical remembered target-library key.
 
 The older ambiguous `last.profile` key is no longer part of the active config contract. Library-specific naming behavior belongs in each library entry’s `schema_profile` value.
+
+## Startup Private Data Dialog
+
+At startup, the tool opens a Tkinter private-data dialog before import-source selection.
+
+The dialog can:
+* Review core private/local config before an import starts.
+* Create `kicad_import_private_data.json` from `kicad_import_private_data.example.json` when the private data file is missing.
+* Edit:
+  * `last.source_folder`
+  * `last.library_root`
+  * `last.library_folder`
+  * `last.target_library`
+  * `path_variable`
+* Select the target library from configured library-profile keys.
+* Show a read-only summary of the selected library profile.
+* Save changes only to `kicad_import_private_data.json`.
+* Continue without saving.
+* Cancel startup before the import workflow begins.
+
+The dialog validates required folders, the selected target library, the KiCad path variable, and the minimum selected-library fields needed by the importer.
+
+Current limitations:
+* Library profiles are displayed but not fully editable yet.
+* API keys are not editable in the dialog yet.
+* Recent naming values are not editable or clearable in the dialog yet.
+* Public default config, naming schema, and suggestion rules are not edited by this dialog.
 
 ## Target Library Resolution
 
@@ -389,7 +416,7 @@ The tool currently does not:
 * guarantee 3D model orientation
 * validate all pad/pin/schematic correctness
 * guarantee compatibility with all KiCad versions
-* provide a full GUI configuration workflow
+* provide a full advanced GUI configuration workflow for naming schema, suggestion rules, API keys, or library-profile editing
 * operate as a native KiCad plugin
 * query online part databases or distributor APIs
 * enrich part metadata from manufacturer part numbers

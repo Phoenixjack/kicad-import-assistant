@@ -29,11 +29,15 @@ api_integrations.keys
 
 Normal successful imports save updated local state only to `kicad_import_private_data.json`. The tracked public default config is read during startup but is not modified during normal use.
 
+At startup, the importer opens a private-data config dialog so local paths, the target library profile, and the KiCad path variable can be reviewed or corrected before the import workflow begins. Saving from this dialog writes only to `kicad_import_private_data.json`.
+
 ## What It Does
 
 KiCad Import Assistant can currently:
 
 * Select either a vendor ZIP file or a loose KiCad import file set.
+* Review and edit core private/local config values at startup.
+* Create `kicad_import_private_data.json` from the example template when it is missing.
 * Validate import-source selections before staging:
   * one ZIP file only
   * or one footprint, one symbol, and one model file at most
@@ -90,34 +94,35 @@ Development note: active refactor planning is tracked in [`REFACTOR_PLAN.md`](RE
 ## Basic Workflow
 
 The current staged workflow is:
-1. Select a vendor ZIP file or loose KiCad import file set.
-2. Select the custom KiCad library root or target `.pretty` folder.
-3. Resolve the target `.pretty` folder and `.kicad_sym` file.
-4. Extract or stage the selected import source.
-5. Detect footprint, symbol, and model source files.
-6. Select candidate source footprint, symbol, and model files.
-7. Suggest naming defaults.
-8. Collect the manufacturer part number early.
-9. Check for possible existing imports by MPN.
-10. Prompt for naming tokens.
-11. Generate the final basename.
-12. Create the import plan.
-13. Choose per-item import actions:
+1. Review private/local config in the startup dialog.
+2. Select a vendor ZIP file or loose KiCad import file set.
+3. Select the custom KiCad library root or target `.pretty` folder.
+4. Resolve the target `.pretty` folder and `.kicad_sym` file.
+5. Extract or stage the selected import source.
+6. Detect footprint, symbol, and model source files.
+7. Select candidate source footprint, symbol, and model files.
+8. Suggest naming defaults.
+9. Collect the manufacturer part number early.
+10. Check for possible existing imports by MPN.
+11. Prompt for naming tokens.
+12. Generate the final basename.
+13. Create the import plan.
+14. Choose per-item import actions:
     * footprint import, replace, or skip
     * model import, replace, or skip
     * symbol merge, replace, or skip
-14. Optionally write a preview import-plan CSV.
-15. Show one final selected-actions confirmation.
-16. Stop before writes if the user declines final confirmation.
-17. Copy/rename selected footprint and/or model files.
-18. Update the copied footprint when a footprint was imported.
-19. Create an edited symbol preview when a symbol merge was selected.
-20. Back up the target symbol library when a symbol merge was selected.
-21. Merge the edited symbol into the target symbol library.
-22. Save successful config state.
-23. Clean up the temporary import folder when allowed.
-24. Print the final import summary.
-25. Optionally archive original source files that correspond to actions that actually ran.
+15. Optionally write a preview import-plan CSV.
+16. Show one final selected-actions confirmation.
+17. Stop before writes if the user declines final confirmation.
+18. Copy/rename selected footprint and/or model files.
+19. Update the copied footprint when a footprint was imported.
+20. Create an edited symbol preview when a symbol merge was selected.
+21. Back up the target symbol library when a symbol merge was selected.
+22. Merge the edited symbol into the target symbol library.
+23. Save successful config state.
+24. Clean up the temporary import folder when allowed.
+25. Print the final import summary.
+26. Optionally archive original source files that correspond to actions that actually ran.
 
 ## Config Safety Behavior
 
@@ -134,6 +139,18 @@ Later layers override earlier layers.
 The tracked public default config is intended to remain generic and safe to commit. The importer does not save runtime state to this file.
 
 Successful run state is saved only to the ignored private data file.
+
+The startup private-data dialog can currently edit:
+
+```text
+last.source_folder
+last.library_root
+last.library_folder
+last.target_library
+path_variable
+```
+
+The dialog also shows a read-only summary of the selected library profile. It does not edit naming schema, suggestion rules, API keys, or full library-profile definitions yet.
 
 The canonical remembered import-source folder is:
 
@@ -298,7 +315,7 @@ The tool currently does not:
 * guarantee 3D model orientation
 * validate all pad/pin/schematic correctness
 * guarantee compatibility with all KiCad versions
-* provide a full GUI configuration workflow
+* provide a full advanced GUI configuration workflow for naming schema, suggestion rules, API keys, or library-profile editing
 * operate as a native KiCad plugin
 * query online part databases or distributor APIs
 * enrich part metadata from manufacturer part numbers
