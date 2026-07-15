@@ -2,7 +2,7 @@
 
 This file describes the current capabilities and known limitations of KiCad Import Assistant.
 
-Current version: **Unreleased V0.20.0 main GUI shell branch**
+Current version: **Unreleased V0.20.1 logging and diagnostics branch**
 
 Current development branch: `feature/main-gui-import-workflow`
 
@@ -20,9 +20,13 @@ The GUI shell currently provides:
 * A persistent bottom status/action bar.
 * Dynamic primary/reset button labels by active tab.
 * A persistent `View Log` button.
-* An in-memory log viewer popup with severity filtering.
+* A log viewer popup with severity, category, function, and text filtering.
 * A separate `GuiAppState` object for GUI/session state.
 * A separate `GuiLogger` for GUI log entries and status-strip messages.
+* Optional rolling file logging in the ignored `logs/` folder.
+* Config-tab diagnostics controls for status level, file log level, max log size, retention, and diagnostics redaction.
+* Draft config behavior: diagnostics changes are not applied until `Save Config` is pressed.
+* Automatic restore of the last GUI window size, position, and maximized state.
 
 The existing CLI launcher remains available:
 

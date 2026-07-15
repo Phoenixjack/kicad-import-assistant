@@ -1,5 +1,35 @@
 # Version History
 
+## Unreleased - V0.20.1 Logging and Diagnostics
+
+Feature branch: `feature/main-gui-import-workflow`
+
+Expands the parallel GUI shell with functional logging and diagnostics controls.
+
+Changes:
+* Wires Config-tab diagnostics controls into draft settings that apply only when `Save Config` is pressed.
+* Adds optional JSON-lines file logging to `logs/kia-current.log`.
+* Adds size-based log rotation to timestamped `logs/kia-YYYYMMDD-HHMMSS.log` files.
+* Adds retention handling for current-session-only, last 3 logs, and last 7 logs.
+* Adds local-path redaction for copied/exported diagnostics and optional file logging.
+* Expands the log viewer with severity, category, function, and text filters.
+* Adds Copy Filtered and Open Log Folder actions to the log viewer.
+* Keeps status-strip messages capped for compact display.
+* Saves and restores GUI window size, position, and maximized state through ignored private data.
+* Bumps app version to `0.20.1`.
+
+Tested:
+* `python -m py_compile kicad_import_assistant.py` passes.
+* `python -m py_compile kicad_import_assistant_gui.py` passes.
+* `python -m compileall -f -q kia kicad_import_assistant.py kicad_import_assistant_gui.py` passes.
+* `git diff --check` passes.
+* Non-GUI logger helper check passes for filtering, truncation, and temp-folder file logging.
+* GUI window-geometry helper check passes for valid/invalid geometry handling.
+
+Current limitations:
+* Logging settings apply for the current session only until the Config tab is wired to private-data save/load.
+* GUI import execution is not wired yet.
+
 ## Unreleased - V0.20.0 Main GUI Shell
 
 Feature branch: `feature/main-gui-import-workflow`
