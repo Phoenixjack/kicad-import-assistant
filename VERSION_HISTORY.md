@@ -31,6 +31,17 @@ Current limitations:
 * Schema tab is a read-only placeholder.
 * File logging is not active yet; current GUI logging is in-memory only.
 
+Planned V0.20.x follow-up:
+* V0.20.1: Logging and diagnostics.
+* V0.20.2: Config tab.
+* V0.20.3: Schema read-only tab.
+* V0.20.4: Import tab static workflow.
+* V0.20.5: Source selection and naming preview.
+* V0.20.6: Import action planning.
+* V0.20.7: Apply import wiring.
+* V0.20.8: CLI prompt retirement pass.
+* V0.20.9: Polish and stabilization.
+
 ## Unreleased - V0.19.0 Private Data Config Dialog
 
 Feature branch: `feature/private-data-config-dialog`

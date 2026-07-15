@@ -32,6 +32,23 @@ kicad_import_assistant.py
 
 The GUI launcher is not wired to perform imports yet.
 
+GUI development is planned as staged patch releases:
+
+```text
+V0.20.0  Main GUI shell
+V0.20.1  Logging and diagnostics
+V0.20.2  Config tab
+V0.20.3  Schema read-only tab
+V0.20.4  Import tab static workflow
+V0.20.5  Source selection and naming preview
+V0.20.6  Import action planning
+V0.20.7  Apply import wiring
+V0.20.8  CLI prompt retirement pass
+V0.20.9  Polish and stabilization
+```
+
+The CLI workflow remains the stable import path while GUI behavior is built and tested.
+
 ## Import Source Handling
 
 The tool can currently:
