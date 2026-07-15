@@ -1,5 +1,28 @@
 # Version History
 
+## Unreleased - V0.20.5 Target Library Alignment
+
+Feature branch: `feature/main-gui-import-workflow`
+
+Aligns the GUI Import workflow around target-library destination selection while preserving the existing private-data shape.
+
+Changes:
+* Adds a Target Library selector to the Import tab.
+* Derives the naming Library prefix from the selected target library's private-data settings.
+* Derives output preview paths from the selected target library instead of only the last saved target.
+* Reframes GUI-facing library-profile language as Target Libraries.
+* Keeps the existing `libraries` private-data structure and CLI behavior unchanged.
+* Bumps app version to `0.20.5`.
+
+Tested:
+* `python -m py_compile kicad_import_assistant.py` passes.
+* `python -m py_compile kicad_import_assistant_gui.py` passes.
+* `python -m compileall -f -q kia kicad_import_assistant.py kicad_import_assistant_gui.py` passes.
+
+Current limitations:
+* Target-library selection updates GUI preview state only.
+* GUI import execution is not wired yet.
+
 ## Unreleased - V0.20.4 Import Tab Static Workflow
 
 Feature branch: `feature/main-gui-import-workflow`
@@ -142,9 +165,9 @@ Planned V0.20.x follow-up:
 * V0.20.2: Config tab.
 * V0.20.3: Schema read-only tab.
 * V0.20.4: Import tab static workflow.
-* V0.20.5: Source selection and naming preview.
-* V0.20.6: Import action planning.
-* V0.20.7: Apply import wiring.
+* V0.20.5: Target library alignment.
+* V0.20.6: Source selection and naming preview.
+* V0.20.7: Import action planning.
 * V0.20.8: CLI prompt retirement pass.
 * V0.20.9: Polish and stabilization.
 

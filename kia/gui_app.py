@@ -366,7 +366,18 @@ class KiCadImportAssistantGui:
             command=self.clear_import_selection_action,
         ).grid(row=0, column=3, padx=(8, 0), pady=4)
 
-        for row, item_type in enumerate(IMPORT_ITEM_TYPES, start=1):
+        ttk.Label(source_frame, text="Target library:").grid(row=1, column=0, sticky="w", pady=4)
+        self.import_target_library_var = tk.StringVar()
+        self.import_target_library_combo = ttk.Combobox(
+            source_frame,
+            textvariable=self.import_target_library_var,
+            values=self.target_library_keys(),
+            state="readonly",
+        )
+        self.import_target_library_combo.grid(row=1, column=1, sticky="ew", padx=(8, 0), pady=4)
+        self.import_target_library_combo.bind("<<ComboboxSelected>>", self.on_import_target_library_changed)
+
+        for row, item_type in enumerate(IMPORT_ITEM_TYPES, start=2):
             source_var = tk.StringVar(value="None selected")
             status_var = tk.StringVar(value="Not selected")
             self.import_item_source_vars[item_type] = source_var
@@ -603,13 +614,88 @@ class KiCadImportAssistantGui:
         return sorted(str(key) for key in values)
 
     def apply_default_import_values(self) -> None:
-        target_library = self.applied_private_data.get("last", {}).get("target_library", "")
-        libraries = self.applied_private_data.get("libraries", {})
-        target_settings = libraries.get(target_library, {}) if isinstance(libraries, dict) else {}
-        default_prefix = target_settings.get("prefix", "") if isinstance(target_settings, dict) else ""
+        default_target = self.default_target_library_key()
+        if default_target and "import_target_library_var" in self.__dict__:
+            self.import_target_library_var.set(default_target)
 
+        target_settings = self.current_import_target_settings()
+        default_prefix = target_settings.get("prefix", "") if isinstance(target_settings, dict) else ""
         if default_prefix and "library" in self.naming_field_vars:
             self.naming_field_vars["library"].set(str(default_prefix))
+            self.refresh_import_naming_control_values()
+
+    def target_library_keys(self) -> list[str]:
+        libraries = self.applied_private_data.get("libraries", {})
+
+        if not isinstance(libraries, dict):
+            return []
+
+        return sorted(str(key) for key in libraries)
+
+    def default_target_library_key(self) -> str:
+        target_library = self.applied_private_data.get("last", {}).get("target_library", "")
+        keys = self.target_library_keys()
+
+        if target_library in keys:
+            return str(target_library)
+
+        if keys:
+            return keys[0]
+
+        return ""
+
+    def current_import_target_settings(self) -> dict:
+        target_library = self.import_target_library_var.get().strip() if "import_target_library_var" in self.__dict__ else ""
+        libraries = self.applied_private_data.get("libraries", {})
+
+        if not isinstance(libraries, dict):
+            return {}
+
+        target_settings = libraries.get(target_library, {})
+        if isinstance(target_settings, dict):
+            return target_settings
+
+        return {}
+
+    def on_import_target_library_changed(self, event: tk.Event) -> None:
+        del event
+        self.apply_import_target_to_naming_fields()
+        self.mark_import_dirty_from_controls()
+        self.refresh_import_static_view()
+
+    def refresh_import_target_library_options(self) -> None:
+        if "import_target_library_combo" not in self.__dict__:
+            return
+
+        target_keys = self.target_library_keys()
+        self.import_target_library_combo["values"] = target_keys
+
+        if self.import_target_library_var.get().strip() not in target_keys:
+            controls_were_ready = self._import_controls_ready
+            self._import_controls_ready = False
+            self.import_target_library_var.set(self.default_target_library_key())
+            self.apply_import_target_to_naming_fields()
+            self._import_controls_ready = controls_were_ready
+        elif not self.state.import_tab.dirty:
+            controls_were_ready = self._import_controls_ready
+            self._import_controls_ready = False
+            self.apply_import_target_to_naming_fields()
+            self._import_controls_ready = controls_were_ready
+
+        self.refresh_import_static_view()
+
+    def apply_import_target_to_naming_fields(self) -> None:
+        target_settings = self.current_import_target_settings()
+        target_prefix = str(target_settings.get("prefix", "")).strip()
+
+        if "library" in self.naming_field_vars:
+            self.naming_field_vars["library"].set(target_prefix)
+
+        for field_name, value_var in self.naming_field_vars.items():
+            if field_name not in {"library", "mpn"}:
+                value_var.set("")
+
+        self.refresh_import_naming_control_values()
 
     def on_import_library_changed(self, event: tk.Event) -> None:
         del event
@@ -824,12 +910,7 @@ class KiCadImportAssistantGui:
             )
 
     def import_target_preview_paths(self, base_name: str) -> dict[str, str]:
-        target_library = self.applied_private_data.get("last", {}).get("target_library", "")
-        libraries = self.applied_private_data.get("libraries", {})
-        target_settings = libraries.get(target_library, {}) if isinstance(libraries, dict) else {}
-
-        if not isinstance(target_settings, dict):
-            target_settings = {}
+        target_settings = self.current_import_target_settings()
 
         symbol_file = target_settings.get("symbol_file", "[symbol-library].kicad_sym")
         footprint_dir = target_settings.get("footprint_dir", "[footprint-library].pretty")
@@ -927,7 +1008,7 @@ class KiCadImportAssistantGui:
             pady=4,
         )
 
-        profiles_frame = ttk.LabelFrame(self.config_tab, text="B. Library Profiles", padding=12)
+        profiles_frame = ttk.LabelFrame(self.config_tab, text="B. Target Libraries", padding=12)
         profiles_frame.grid(row=1, column=0, sticky="nsew", pady=8)
         profiles_frame.columnconfigure(1, weight=1)
         self.config_tab.rowconfigure(1, weight=1)
@@ -958,8 +1039,8 @@ class KiCadImportAssistantGui:
         self.profile_nickname_var = tk.StringVar()
         self.profile_schema_profile_var = tk.StringVar()
 
-        self.add_profile_row(profiles_frame, 0, "Library key:", self.profile_key_var)
-        self.add_profile_row(profiles_frame, 1, "Prefix:", self.profile_prefix_var)
+        self.add_profile_row(profiles_frame, 0, "Target key:", self.profile_key_var)
+        self.add_profile_row(profiles_frame, 1, "Naming prefix:", self.profile_prefix_var)
         self.add_profile_row(profiles_frame, 2, "Footprint dir:", self.profile_footprint_dir_var)
         self.add_profile_row(profiles_frame, 3, "Symbol file:", self.profile_symbol_file_var)
         self.add_profile_row(profiles_frame, 4, "Nickname:", self.profile_nickname_var)
@@ -1539,7 +1620,7 @@ class KiCadImportAssistantGui:
 
         previous_key = self.active_profile_key
         if self._config_controls_ready and not self.sync_current_profile_from_controls():
-            self.set_status("Current library profile has an invalid or duplicate key.", "warning")
+            self.set_status("Current target library has an invalid or duplicate key.", "warning")
             self.select_profile_by_key(self.active_profile_key)
             return
 
@@ -1566,7 +1647,7 @@ class KiCadImportAssistantGui:
 
     def add_library_profile(self) -> None:
         if not self.sync_current_profile_from_controls():
-            self.set_status("Current library profile has an invalid or duplicate key.", "warning")
+            self.set_status("Current target library has an invalid or duplicate key.", "warning")
             return
 
         profile_key = self.unique_profile_key("NEW_LIBRARY")
@@ -1583,7 +1664,7 @@ class KiCadImportAssistantGui:
 
     def duplicate_library_profile(self) -> None:
         if not self.sync_current_profile_from_controls():
-            self.set_status("Current library profile has an invalid or duplicate key.", "warning")
+            self.set_status("Current target library has an invalid or duplicate key.", "warning")
             return
 
         if not self.active_profile_key:
@@ -1600,8 +1681,8 @@ class KiCadImportAssistantGui:
             return
 
         delete_profile = messagebox.askyesno(
-            title="Delete Library Profile",
-            message=f"Delete library profile '{self.active_profile_key}'?",
+            title="Delete Target Library",
+            message=f"Delete target library '{self.active_profile_key}'?",
         )
 
         if not delete_profile:
@@ -1842,24 +1923,24 @@ class KiCadImportAssistantGui:
         if not target_library:
             errors.append("Target library is required.")
         elif target_library not in self.library_profiles:
-            errors.append("Target library must match a configured library profile.")
+            errors.append("Target library must match a configured target library.")
 
         if not self.library_profiles:
-            errors.append("At least one library profile is required.")
+            errors.append("At least one target library is required.")
 
         for profile_key, profile_data in self.library_profiles.items():
             if not profile_key.strip():
-                errors.append("Library profile keys cannot be blank.")
+                errors.append("Target library keys cannot be blank.")
 
             for field_name in LIBRARY_PROFILE_FIELDS:
                 if not str(profile_data.get(field_name, "")).strip():
-                    errors.append(f"Library profile '{profile_key}' is missing {field_name}.")
+                    errors.append(f"Target library '{profile_key}' is missing {field_name}.")
 
         return errors
 
     def build_private_data_from_config_controls(self) -> dict | None:
         if not self.sync_current_profile_from_controls():
-            self.set_status("Current library profile has an invalid or duplicate key.", "warning")
+            self.set_status("Current target library has an invalid or duplicate key.", "warning")
             return None
 
         self.sync_current_api_from_controls()
@@ -1939,6 +2020,7 @@ class KiCadImportAssistantGui:
         self.load_config_draft_from_private_data(self.applied_private_data)
         self.refresh_profile_listbox()
         self.refresh_api_combo()
+        self.refresh_import_target_library_options()
         self._config_controls_ready = True
         self.state.config_tab.dirty = False
         self.refresh_action_bar()
@@ -1955,6 +2037,7 @@ class KiCadImportAssistantGui:
         self.apply_private_data_to_config_controls(self.applied_private_data)
         self.refresh_profile_listbox()
         self.refresh_api_combo()
+        self.refresh_import_target_library_options()
         self.apply_logging_settings_to_controls(self.applied_log_settings)
         self._config_controls_ready = True
         self.state.config_tab.dirty = False
