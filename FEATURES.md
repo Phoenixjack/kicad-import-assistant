@@ -2,7 +2,7 @@
 
 This file describes the current capabilities and known limitations of KiCad Import Assistant.
 
-Current version: **Unreleased V0.20.2 Config tab branch**
+Current version: **Unreleased V0.20.3 Schema read-only tab branch**
 
 Current development branch: `feature/main-gui-import-workflow`
 
@@ -25,6 +25,7 @@ The GUI shell currently provides:
 * A separate `GuiLogger` for GUI log entries and status-strip messages.
 * Optional rolling file logging in the ignored `logs/` folder.
 * Config-tab editing for local paths, target library, path variable, library profiles, API keys, and diagnostics settings.
+* Schema-tab browsing for naming-schema field order, required fields, token sets, library families, and library-specific token overrides.
 * Draft config behavior: Config-tab changes are not applied or saved until `Save Config` is pressed.
 * Automatic restore of the last GUI window size, position, and maximized state.
 

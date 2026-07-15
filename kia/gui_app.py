@@ -26,6 +26,7 @@ MIN_WINDOW_WIDTH = 1100
 MIN_WINDOW_HEIGHT = 800
 WINDOW_GEOMETRY_PATTERN = re.compile(r"^(\d+)x(\d+)([+-]\d+)?([+-]\d+)?$")
 PRIVATE_DATA_PATH = Path(__file__).resolve().parent.parent / "kicad_import_private_data.json"
+NAMING_SCHEMA_PATH = Path(__file__).resolve().parent.parent / "kicad_import_naming_schema.json"
 DEFAULT_API_NAMES = ["mouser", "digikey", "octopart_nexar", "snapeda"]
 LIBRARY_PROFILE_FIELDS = [
     "prefix",
@@ -58,6 +59,7 @@ class KiCadImportAssistantGui:
         self.active_profile_key = ""
         self.api_keys = {}
         self.active_api_name = ""
+        self.naming_schema = {}
         self.applied_log_settings = self.state.log_settings
         self.status_var = tk.StringVar(value=self.state.status_message)
         self.primary_action_var = tk.StringVar(value="Apply Import")
@@ -431,12 +433,269 @@ class KiCadImportAssistantGui:
         self._config_controls_ready = True
 
     def build_schema_tab(self) -> None:
-        self.add_placeholder_section(
-            self.schema_tab,
-            title="Schema Viewer",
-            body="Read-only schema viewer placeholder. Editing is intentionally disabled.",
-            row=0,
+        self.schema_tab.columnconfigure(0, weight=1)
+        self.schema_tab.rowconfigure(1, weight=1)
+
+        controls = ttk.LabelFrame(self.schema_tab, text="Schema Filters", padding=12)
+        controls.grid(row=0, column=0, sticky="ew", pady=(0, 8))
+        controls.columnconfigure(5, weight=1)
+
+        ttk.Label(controls, text="Library:").grid(row=0, column=0, sticky="w")
+        self.schema_library_var = tk.StringVar(value="All")
+        self.schema_library_combo = ttk.Combobox(
+            controls,
+            textvariable=self.schema_library_var,
+            values=["All"],
+            state="readonly",
+            width=22,
         )
+        self.schema_library_combo.grid(row=0, column=1, sticky="w", padx=(6, 16))
+        self.schema_library_combo.bind("<<ComboboxSelected>>", self.refresh_schema_view)
+
+        ttk.Label(controls, text="Token set:").grid(row=0, column=2, sticky="w")
+        self.schema_token_set_var = tk.StringVar(value="All")
+        self.schema_token_set_combo = ttk.Combobox(
+            controls,
+            textvariable=self.schema_token_set_var,
+            values=["All"],
+            state="readonly",
+            width=22,
+        )
+        self.schema_token_set_combo.grid(row=0, column=3, sticky="w", padx=(6, 16))
+        self.schema_token_set_combo.bind("<<ComboboxSelected>>", self.refresh_schema_view)
+
+        ttk.Label(controls, text="Search:").grid(row=0, column=4, sticky="w")
+        self.schema_search_var = tk.StringVar()
+        self.schema_search_entry = ttk.Entry(controls, textvariable=self.schema_search_var)
+        self.schema_search_entry.grid(row=0, column=5, sticky="ew", padx=(6, 16))
+        self.schema_search_entry.bind("<KeyRelease>", self.refresh_schema_view)
+
+        ttk.Button(
+            controls,
+            text="Refresh",
+            command=self.reload_schema_view,
+        ).grid(row=0, column=6, sticky="e")
+
+        content = ttk.PanedWindow(self.schema_tab, orient=tk.HORIZONTAL)
+        content.grid(row=1, column=0, sticky="nsew")
+
+        summary_frame = ttk.LabelFrame(content, text="Summary", padding=8)
+        table_frame = ttk.LabelFrame(content, text="Schema Entries", padding=8)
+        content.add(summary_frame, weight=1)
+        content.add(table_frame, weight=4)
+
+        self.schema_summary_text = tk.Text(
+            summary_frame,
+            height=18,
+            width=34,
+            wrap="word",
+            state="disabled",
+        )
+        self.schema_summary_text.pack(fill="both", expand=True)
+
+        table_frame.columnconfigure(0, weight=1)
+        table_frame.rowconfigure(0, weight=1)
+        columns = ("scope", "section", "key", "description")
+        self.schema_tree = ttk.Treeview(table_frame, columns=columns, show="headings")
+        for column in columns:
+            self.schema_tree.heading(column, text=column.title())
+
+        self.schema_tree.column("scope", width=130, stretch=False)
+        self.schema_tree.column("section", width=140, stretch=False)
+        self.schema_tree.column("key", width=150, stretch=False)
+        self.schema_tree.column("description", width=520, stretch=True)
+        self.schema_tree.grid(row=0, column=0, sticky="nsew")
+
+        scrollbar = ttk.Scrollbar(table_frame, orient="vertical", command=self.schema_tree.yview)
+        scrollbar.grid(row=0, column=1, sticky="ns")
+        self.schema_tree.configure(yscrollcommand=scrollbar.set)
+
+        self.reload_schema_view()
+
+    def read_naming_schema_for_gui(self) -> dict | None:
+        """
+        Quietly load the naming schema for the read-only GUI view.
+        """
+        if not NAMING_SCHEMA_PATH.exists():
+            return None
+
+        try:
+            with NAMING_SCHEMA_PATH.open("r", encoding="utf-8") as file:
+                schema = json.load(file)
+        except (OSError, json.JSONDecodeError):
+            return None
+
+        if not isinstance(schema, dict):
+            return None
+
+        return schema
+
+    def reload_schema_view(self) -> None:
+        self.naming_schema = self.read_naming_schema_for_gui() or {}
+
+        if not self.naming_schema:
+            self.logger.warning(
+                "Naming schema could not be loaded.",
+                category="schema",
+                function_name="reload_schema_view",
+            )
+
+        self.refresh_schema_filter_values()
+        self.refresh_schema_view()
+
+    def refresh_schema_filter_values(self) -> None:
+        libraries = self.naming_schema.get("libraries", {})
+        if not isinstance(libraries, dict):
+            libraries = {}
+
+        library_keys = ["All"] + sorted(str(key) for key in libraries)
+        current_library = self.schema_library_var.get()
+        self.schema_library_combo["values"] = library_keys
+        if current_library not in library_keys:
+            self.schema_library_var.set("All")
+
+        token_set_names = set()
+        token_sets = self.naming_schema.get("token_sets", {})
+        if isinstance(token_sets, dict):
+            token_set_names.update(str(key) for key in token_sets)
+
+        selected_library = self.schema_library_var.get()
+        selected_libraries = libraries.values()
+        if selected_library != "All" and selected_library in libraries:
+            selected_libraries = [libraries[selected_library]]
+
+        for library_data in selected_libraries:
+            if not isinstance(library_data, dict):
+                continue
+
+            library_token_sets = library_data.get("token_sets", {})
+            if isinstance(library_token_sets, dict):
+                token_set_names.update(str(key) for key in library_token_sets)
+
+        token_set_values = ["All"] + sorted(token_set_names)
+        current_token_set = self.schema_token_set_var.get()
+        self.schema_token_set_combo["values"] = token_set_values
+        if current_token_set not in token_set_values:
+            self.schema_token_set_var.set("All")
+
+    def refresh_schema_view(self, event: tk.Event | None = None) -> None:
+        del event
+        self.refresh_schema_filter_values()
+        self.update_schema_summary()
+        self.schema_tree.delete(*self.schema_tree.get_children())
+
+        search_text = self.schema_search_var.get().strip().lower()
+        for row in self.build_schema_rows():
+            if search_text and search_text not in " ".join(row).lower():
+                continue
+
+            self.schema_tree.insert("", "end", values=row)
+
+    def build_schema_rows(self) -> list[tuple[str, str, str, str]]:
+        rows = []
+        selected_library = self.schema_library_var.get()
+        selected_token_set = self.schema_token_set_var.get()
+
+        libraries = self.naming_schema.get("libraries", {})
+        if not isinstance(libraries, dict):
+            libraries = {}
+
+        global_token_sets = self.naming_schema.get("token_sets", {})
+        if isinstance(global_token_sets, dict) and selected_library == "All":
+            rows.extend(
+                self.token_set_rows(
+                    scope="Global",
+                    token_sets=global_token_sets,
+                    selected_token_set=selected_token_set,
+                )
+            )
+
+        library_items = sorted(libraries.items())
+        if selected_library != "All":
+            library_items = [
+                (selected_library, libraries[selected_library])
+                for selected_library in [selected_library]
+                if selected_library in libraries
+            ]
+
+        for library_key, library_data in library_items:
+            if not isinstance(library_data, dict):
+                continue
+
+            if selected_token_set in {"All", "families"}:
+                families = library_data.get("families", {})
+                if isinstance(families, dict):
+                    for key, description in sorted(families.items()):
+                        rows.append((str(library_key), "families", str(key), str(description)))
+
+            library_token_sets = library_data.get("token_sets", {})
+            if isinstance(library_token_sets, dict):
+                rows.extend(
+                    self.token_set_rows(
+                        scope=str(library_key),
+                        token_sets=library_token_sets,
+                        selected_token_set=selected_token_set,
+                    )
+                )
+
+        return rows
+
+    def token_set_rows(
+        self,
+        scope: str,
+        token_sets: dict,
+        selected_token_set: str,
+    ) -> list[tuple[str, str, str, str]]:
+        rows = []
+
+        for token_set_name, values in sorted(token_sets.items()):
+            if selected_token_set != "All" and token_set_name != selected_token_set:
+                continue
+
+            if not isinstance(values, dict):
+                continue
+
+            for key, description in sorted(values.items()):
+                rows.append((scope, str(token_set_name), str(key), str(description)))
+
+        return rows
+
+    def update_schema_summary(self) -> None:
+        lines = []
+
+        if not self.naming_schema:
+            lines.append("Schema could not be loaded.")
+        else:
+            lines.append(f"Schema version: {self.naming_schema.get('schema_version', '')}")
+            lines.append("")
+            lines.append("Field order:")
+            for field_name in self.naming_schema.get("field_order", []):
+                lines.append(f"  {field_name}")
+
+            lines.append("")
+            lines.append("Required fields:")
+            for field_name in self.naming_schema.get("required_fields", []):
+                lines.append(f"  {field_name}")
+
+            lines.append("")
+            lines.append("Optional fields:")
+            for field_name in self.naming_schema.get("optional_fields", []):
+                lines.append(f"  {field_name}")
+
+            selected_library = self.schema_library_var.get()
+            libraries = self.naming_schema.get("libraries", {})
+            if selected_library != "All" and isinstance(libraries, dict):
+                library_data = libraries.get(selected_library, {})
+                if isinstance(library_data, dict):
+                    lines.append("")
+                    lines.append(f"Library: {selected_library}")
+                    lines.append(f"Name: {library_data.get('name', '')}")
+                    lines.append(f"Target hint: {library_data.get('target_library_hint', '')}")
+
+        self.schema_summary_text.configure(state="normal")
+        self.schema_summary_text.delete("1.0", tk.END)
+        self.schema_summary_text.insert("1.0", "\n".join(lines))
+        self.schema_summary_text.configure(state="disabled")
 
     def add_placeholder_section(self, parent: ttk.Frame, title: str, body: str, row: int) -> None:
         frame = ttk.LabelFrame(parent, text=title, padding=12)

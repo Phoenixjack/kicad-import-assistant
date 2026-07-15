@@ -1,5 +1,28 @@
 # Version History
 
+## Unreleased - V0.20.3 Schema Read-Only Tab
+
+Feature branch: `feature/main-gui-import-workflow`
+
+Turns the GUI Schema tab into a read-only browser for naming-schema data.
+
+Changes:
+* Loads `kicad_import_naming_schema.json` into the GUI Schema tab.
+* Adds library, token-set, and text search filters.
+* Shows schema metadata, field order, required fields, optional fields, and selected-library hints.
+* Shows global token sets, per-library families, and per-library token overrides in a read-only table.
+* Routes schema load failures through the GUI logger/status strip.
+* Bumps app version to `0.20.3`.
+
+Tested:
+* `python -m py_compile kicad_import_assistant.py` passes.
+* `python -m py_compile kicad_import_assistant_gui.py` passes.
+* `python -m compileall -f -q kia kicad_import_assistant.py kicad_import_assistant_gui.py` passes.
+
+Current limitations:
+* Schema editing is intentionally disabled.
+* GUI import execution is not wired yet.
+
 ## Unreleased - V0.20.2 Config Tab
 
 Feature branch: `feature/main-gui-import-workflow`
