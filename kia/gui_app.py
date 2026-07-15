@@ -7,6 +7,7 @@ import os
 import re
 import shutil
 import tkinter as tk
+import zipfile
 from pathlib import Path
 from tkinter import filedialog, messagebox, ttk
 
@@ -30,6 +31,7 @@ PRIVATE_DATA_PATH = Path(__file__).resolve().parent.parent / "kicad_import_priva
 PRIVATE_DATA_EXAMPLE_PATH = Path(__file__).resolve().parent.parent / "kicad_import_private_data.example.json"
 NAMING_SCHEMA_PATH = Path(__file__).resolve().parent.parent / "kicad_import_naming_schema.json"
 DEFAULT_API_NAMES = ["mouser", "digikey", "octopart_nexar", "snapeda"]
+IMPORT_ITEM_TYPES = ["Symbol", "Footprint", "3D Model"]
 LIBRARY_PROFILE_FIELDS = [
     "prefix",
     "footprint_dir",
@@ -37,6 +39,41 @@ LIBRARY_PROFILE_FIELDS = [
     "nickname",
     "schema_profile",
 ]
+
+
+class ToolTip:
+    """
+    Minimal tooltip helper for Tk widgets.
+    """
+
+    def __init__(self, widget: tk.Widget, text: str) -> None:
+        self.widget = widget
+        self.text = text
+        self.tip_window = None
+        widget.bind("<Enter>", self.show)
+        widget.bind("<Leave>", self.hide)
+
+    def show(self, _event: tk.Event) -> None:
+        if self.tip_window is not None:
+            return
+
+        x_position = self.widget.winfo_rootx() + 20
+        y_position = self.widget.winfo_rooty() + self.widget.winfo_height() + 4
+        self.tip_window = tk.Toplevel(self.widget)
+        self.tip_window.wm_overrideredirect(True)
+        self.tip_window.wm_geometry(f"+{x_position}+{y_position}")
+        ttk.Label(
+            self.tip_window,
+            text=self.text,
+            padding=(6, 3),
+            relief="solid",
+            borderwidth=1,
+        ).pack()
+
+    def hide(self, _event: tk.Event) -> None:
+        if self.tip_window is not None:
+            self.tip_window.destroy()
+            self.tip_window = None
 
 
 class KiCadImportAssistantGui:
@@ -68,6 +105,7 @@ class KiCadImportAssistantGui:
         self.status_var = tk.StringVar(value=self.state.status_message)
         self.primary_action_var = tk.StringVar(value="Apply Import")
         self.reset_action_var = tk.StringVar(value="Reset Import")
+        self._import_controls_ready = False
         self._config_controls_ready = False
 
         self.logger = GuiLogger(
@@ -296,30 +334,560 @@ class KiCadImportAssistantGui:
         return content
 
     def build_import_tab(self) -> None:
-        self.add_placeholder_section(
-            self.import_tab,
-            title="A. Import Source",
-            body="Source selection UI will be wired in V0.20.x after the shell is stable.",
+        self._import_controls_ready = False
+        self.import_tab.columnconfigure(0, weight=1)
+        self.selected_import_files = []
+        self.import_item_source_vars = {}
+        self.import_item_status_vars = {}
+        self.naming_field_vars = {}
+        self.naming_field_controls = {}
+
+        source_frame = ttk.LabelFrame(self.import_tab, text="A. Import Source", padding=12)
+        source_frame.grid(row=0, column=0, sticky="ew", pady=8)
+        source_frame.columnconfigure(1, weight=1)
+
+        ttk.Label(source_frame, text="Import path:").grid(row=0, column=0, sticky="w", pady=4)
+        self.import_path_var = tk.StringVar()
+        ttk.Entry(source_frame, textvariable=self.import_path_var, state="readonly").grid(
             row=0,
+            column=1,
+            sticky="ew",
+            padx=(8, 0),
+            pady=4,
         )
-        self.add_placeholder_section(
-            self.import_tab,
-            title="B. Configure Base Name",
-            body="Schema-driven naming controls will appear here.",
-            row=1,
+        ttk.Button(
+            source_frame,
+            text="Select Files...",
+            command=self.select_import_files_action,
+        ).grid(row=0, column=2, padx=(8, 0), pady=4)
+        ttk.Button(
+            source_frame,
+            text="Clear Selection",
+            command=self.clear_import_selection_action,
+        ).grid(row=0, column=3, padx=(8, 0), pady=4)
+
+        for row, item_type in enumerate(IMPORT_ITEM_TYPES, start=1):
+            source_var = tk.StringVar(value="None selected")
+            status_var = tk.StringVar(value="Not selected")
+            self.import_item_source_vars[item_type] = source_var
+            self.import_item_status_vars[item_type] = status_var
+            ttk.Label(source_frame, text=f"{item_type}:").grid(row=row, column=0, sticky="w", pady=3)
+            ttk.Label(source_frame, textvariable=source_var).grid(
+                row=row,
+                column=1,
+                columnspan=2,
+                sticky="ew",
+                padx=(8, 0),
+                pady=3,
+            )
+            ttk.Label(source_frame, textvariable=status_var).grid(row=row, column=3, sticky="w", padx=(8, 0), pady=3)
+
+        naming_frame = ttk.LabelFrame(self.import_tab, text="B. Configure Base Name", padding=12)
+        naming_frame.grid(row=1, column=0, sticky="ew", pady=8)
+        naming_frame.columnconfigure(1, weight=1)
+        naming_frame.columnconfigure(3, weight=1)
+
+        for index, field_name in enumerate(self.import_display_fields()):
+            if field_name == "mpn":
+                row = 0
+                label_column = 0
+                value_column = 1
+            else:
+                adjusted_index = index - 1 if "mpn" in self.import_display_fields() else index
+                row = 1 + (adjusted_index // 2)
+                label_column = 0 if adjusted_index % 2 == 0 else 2
+                value_column = label_column + 1
+
+            value_var = tk.StringVar()
+            self.naming_field_vars[field_name] = value_var
+            ttk.Label(naming_frame, text=f"{self.format_field_label(field_name)}:").grid(
+                row=row,
+                column=label_column,
+                sticky="w",
+                pady=4,
+                padx=(0, 8) if label_column == 0 else (16, 8),
+            )
+            self.add_import_naming_control(naming_frame, row, value_column, field_name, value_var)
+
+            if field_name == "mpn":
+                self.api_lookup_button = ttk.Button(
+                    naming_frame,
+                    text="API Lookup",
+                    state="disabled",
+                )
+                self.api_lookup_button.grid(row=row, column=2, sticky="w", padx=(16, 0), pady=4)
+                ToolTip(self.api_lookup_button, "Future feature: search configured APIs and fill naming fields.")
+
+            value_var.trace_add("write", self.update_import_preview_from_trace)
+
+        actions_frame = ttk.LabelFrame(self.import_tab, text="C. Import Actions", padding=12)
+        actions_frame.grid(row=2, column=0, sticky="ew", pady=8)
+        actions_frame.columnconfigure(0, weight=1)
+        action_columns = ("item", "source", "target", "status", "action")
+        self.import_action_tree = ttk.Treeview(
+            actions_frame,
+            columns=action_columns,
+            show="headings",
+            height=3,
         )
-        self.add_placeholder_section(
-            self.import_tab,
-            title="C. Import Actions",
-            body="Per-item action dropdowns will appear here.",
-            row=2,
+        for column in action_columns:
+            self.import_action_tree.heading(column, text=column.title())
+
+        self.import_action_tree.column("item", width=85, stretch=False)
+        self.import_action_tree.column("source", width=150, stretch=True)
+        self.import_action_tree.column("target", width=180, stretch=True)
+        self.import_action_tree.column("status", width=90, stretch=False)
+        self.import_action_tree.column("action", width=110, stretch=False)
+        self.import_action_tree.grid(row=0, column=0, sticky="ew")
+
+        preview_frame = ttk.LabelFrame(self.import_tab, text="D. Output Preview / Validation Summary", padding=12)
+        preview_frame.grid(row=3, column=0, sticky="ew", pady=8)
+        preview_frame.columnconfigure(1, weight=1)
+
+        ttk.Label(preview_frame, text="Generated base name:").grid(row=0, column=0, sticky="w", pady=4)
+        self.generated_base_name_var = tk.StringVar()
+        ttk.Entry(preview_frame, textvariable=self.generated_base_name_var, state="readonly").grid(
+            row=0,
+            column=1,
+            sticky="ew",
+            padx=(8, 0),
+            pady=4,
         )
-        self.add_placeholder_section(
-            self.import_tab,
-            title="D. Output Preview / Validation Summary",
-            body="Generated basename, output plan, warnings, and blockers will appear here.",
-            row=3,
+
+        self.import_output_preview_var = tk.StringVar()
+        ttk.Label(
+            preview_frame,
+            textvariable=self.import_output_preview_var,
+            justify="left",
+            wraplength=560,
+        ).grid(row=1, column=0, columnspan=2, sticky="ew", pady=(8, 0))
+
+        self.import_validation_summary_var = tk.StringVar()
+        ttk.Label(
+            preview_frame,
+            textvariable=self.import_validation_summary_var,
+            justify="left",
+            wraplength=560,
+        ).grid(row=2, column=0, columnspan=2, sticky="ew", pady=(8, 0))
+
+        self.apply_default_import_values()
+        self.refresh_import_static_view()
+        self._import_controls_ready = True
+
+    def import_naming_fields(self) -> list[str]:
+        schema = self.naming_schema or self.read_naming_schema_for_gui() or {}
+        field_order = schema.get("field_order", [])
+
+        if isinstance(field_order, list) and field_order:
+            return [str(field_name) for field_name in field_order]
+
+        return [
+            "library",
+            "family",
+            "role",
+            "mount",
+            "orientation",
+            "size",
+            "pitch",
+            "base",
+            "feature",
+            "mpn",
+        ]
+
+    def import_display_fields(self) -> list[str]:
+        fields = self.import_naming_fields()
+
+        if "mpn" not in fields:
+            return fields
+
+        return ["mpn"] + [field_name for field_name in fields if field_name != "mpn"]
+
+    def format_field_label(self, field_name: str) -> str:
+        if field_name == "size":
+            return "Pin Count"
+
+        return field_name.replace("_", " ").title()
+
+    def add_import_naming_control(
+        self,
+        parent: ttk.Frame,
+        row: int,
+        column: int,
+        field_name: str,
+        value_var: tk.StringVar,
+    ) -> None:
+        values = self.import_field_values(field_name)
+
+        if values:
+            control = ttk.Combobox(
+                parent,
+                textvariable=value_var,
+                values=values,
+                width=24,
+            )
+        else:
+            control = ttk.Entry(parent, textvariable=value_var)
+
+        control.grid(row=row, column=column, sticky="ew", pady=4)
+        self.naming_field_controls[field_name] = control
+
+        if field_name == "library" and isinstance(control, ttk.Combobox):
+            control.bind("<<ComboboxSelected>>", self.on_import_library_changed)
+
+    def import_field_values(self, field_name: str) -> list[str]:
+        schema = self.naming_schema or self.read_naming_schema_for_gui() or {}
+
+        if field_name == "library":
+            libraries = schema.get("libraries", {})
+            if isinstance(libraries, dict):
+                return sorted(str(key) for key in libraries)
+
+        if field_name == "family":
+            selected_library = self.naming_field_vars.get("library")
+            library_key = selected_library.get().strip() if selected_library is not None else ""
+            return self.import_family_values(schema, library_key)
+
+        token_set_map = {
+            "role": "roles",
+            "mount": "mounts",
+            "orientation": "orientations",
+            "pitch": "common_pitches",
+        }
+        token_set_name = token_set_map.get(field_name)
+
+        if token_set_name:
+            return self.import_token_values(schema, token_set_name)
+
+        return []
+
+    def import_family_values(self, schema: dict, library_key: str) -> list[str]:
+        libraries = schema.get("libraries", {})
+
+        if not isinstance(libraries, dict):
+            return []
+
+        if library_key and library_key in libraries:
+            library_data = libraries.get(library_key, {})
+            families = library_data.get("families", {}) if isinstance(library_data, dict) else {}
+            if isinstance(families, dict):
+                return sorted(str(key) for key in families)
+
+        family_values = set()
+        for library_data in libraries.values():
+            if not isinstance(library_data, dict):
+                continue
+
+            families = library_data.get("families", {})
+            if isinstance(families, dict):
+                family_values.update(str(key) for key in families)
+
+        return sorted(family_values)
+
+    def import_token_values(self, schema: dict, token_set_name: str) -> list[str]:
+        values = {}
+        token_sets = schema.get("token_sets", {})
+
+        if isinstance(token_sets, dict) and isinstance(token_sets.get(token_set_name), dict):
+            values.update(token_sets[token_set_name])
+
+        selected_library = self.naming_field_vars.get("library")
+        library_key = selected_library.get().strip() if selected_library is not None else ""
+        libraries = schema.get("libraries", {})
+
+        if library_key and isinstance(libraries, dict):
+            library_data = libraries.get(library_key, {})
+            library_token_sets = library_data.get("token_sets", {}) if isinstance(library_data, dict) else {}
+            if isinstance(library_token_sets, dict) and isinstance(library_token_sets.get(token_set_name), dict):
+                values.update(library_token_sets[token_set_name])
+
+        return sorted(str(key) for key in values)
+
+    def apply_default_import_values(self) -> None:
+        target_library = self.applied_private_data.get("last", {}).get("target_library", "")
+        libraries = self.applied_private_data.get("libraries", {})
+        target_settings = libraries.get(target_library, {}) if isinstance(libraries, dict) else {}
+        default_prefix = target_settings.get("prefix", "") if isinstance(target_settings, dict) else ""
+
+        if default_prefix and "library" in self.naming_field_vars:
+            self.naming_field_vars["library"].set(str(default_prefix))
+
+    def on_import_library_changed(self, event: tk.Event) -> None:
+        del event
+
+        for field_name, value_var in self.naming_field_vars.items():
+            if field_name not in {"library", "mpn"}:
+                value_var.set("")
+
+        self.refresh_import_naming_control_values()
+        self.refresh_import_static_view()
+
+    def refresh_import_naming_control_values(self) -> None:
+        for field_name, control in self.naming_field_controls.items():
+            if field_name == "library" or not isinstance(control, ttk.Combobox):
+                continue
+
+            control["values"] = self.import_field_values(field_name)
+
+    def update_import_preview_from_trace(self, *_args) -> None:
+        self.mark_import_dirty_from_controls()
+        self.refresh_import_static_view()
+
+    def mark_import_dirty_from_controls(self) -> None:
+        if not self._import_controls_ready:
+            return
+
+        self.state.import_tab.dirty = True
+        self.refresh_action_bar()
+
+    def select_import_files_action(self) -> None:
+        initial_dir = self.import_initial_directory()
+        selected_files = filedialog.askopenfilenames(
+            title="Select KiCad import files",
+            initialdir=initial_dir,
+            filetypes=[
+                ("KiCad import files", "*.zip *.kicad_sym *.kicad_mod *.step *.stp"),
+                ("All files", "*.*"),
+            ],
         )
+
+        if not selected_files:
+            return
+
+        self.selected_import_files = [Path(file_path) for file_path in selected_files]
+        self.mark_import_dirty_from_controls()
+        self.refresh_import_static_view()
+        self.set_status("Import selection loaded for preview.", "info")
+        self.logger.info(
+            "Import selection loaded for preview.",
+            category="import",
+            function_name="select_import_files_action",
+        )
+
+    def clear_import_selection_action(self) -> None:
+        self.selected_import_files = []
+        self._import_controls_ready = False
+        for value_var in self.naming_field_vars.values():
+            value_var.set("")
+
+        self.apply_default_import_values()
+        self._import_controls_ready = True
+        self.refresh_import_static_view()
+        self.state.import_tab.dirty = False
+        self.refresh_action_bar()
+        self.set_status("Import selection cleared.", "info")
+
+    def import_initial_directory(self) -> str:
+        last_config = self.applied_private_data.get("last", {})
+        source_folder = last_config.get("source_folder", "") if isinstance(last_config, dict) else ""
+
+        if source_folder:
+            resolved_path = resolve_dialog_path(str(source_folder))
+            if resolved_path.exists() and resolved_path.is_dir():
+                return str(resolved_path)
+
+        return str(Path.home())
+
+    def classify_selected_import_files(self) -> dict[str, Path | str | None]:
+        selected = {
+            "Symbol": None,
+            "Footprint": None,
+            "3D Model": None,
+            "Zip": None,
+        }
+
+        for file_path in self.selected_import_files:
+            suffix = file_path.suffix.lower()
+
+            if suffix == ".zip" and selected["Zip"] is None:
+                selected["Zip"] = file_path
+                for item_type, member_name in self.read_zip_import_members(file_path).items():
+                    if selected[item_type] is None:
+                        selected[item_type] = member_name
+            elif suffix == ".kicad_sym" and selected["Symbol"] is None:
+                selected["Symbol"] = file_path
+            elif suffix == ".kicad_mod" and selected["Footprint"] is None:
+                selected["Footprint"] = file_path
+            elif suffix in {".step", ".stp"} and selected["3D Model"] is None:
+                selected["3D Model"] = file_path
+
+        return selected
+
+    def read_zip_import_members(self, zip_path: Path) -> dict[str, str]:
+        members = {}
+
+        try:
+            with zipfile.ZipFile(zip_path) as archive:
+                for member_name in archive.namelist():
+                    lower_name = member_name.lower()
+
+                    if lower_name.endswith("/"):
+                        continue
+
+                    if lower_name.endswith(".kicad_sym") and "Symbol" not in members:
+                        members["Symbol"] = member_name
+                    elif lower_name.endswith(".kicad_mod") and "Footprint" not in members:
+                        members["Footprint"] = member_name
+                    elif lower_name.endswith((".step", ".stp")) and "3D Model" not in members:
+                        members["3D Model"] = member_name
+
+        except (OSError, zipfile.BadZipFile) as error:
+            self.logger.warning(
+                "ZIP contents could not be read for preview.",
+                details=str(error),
+                category="import",
+                function_name="read_zip_import_members",
+            )
+
+        return members
+
+    def refresh_import_static_view(self) -> None:
+        selected = self.classify_selected_import_files()
+        self.update_import_source_display(selected)
+        self.update_generated_base_name()
+        self.update_import_action_table(selected)
+        self.update_import_output_preview(selected)
+
+    def update_import_source_display(self, selected: dict[str, Path | str | None]) -> None:
+        if not self.selected_import_files:
+            self.import_path_var.set("")
+        elif len(self.selected_import_files) == 1:
+            self.import_path_var.set(str(self.selected_import_files[0]))
+        else:
+            try:
+                common_parent = Path(os.path.commonpath([str(path.parent) for path in self.selected_import_files]))
+                self.import_path_var.set(str(common_parent))
+            except ValueError:
+                self.import_path_var.set("Multiple folders selected")
+
+        for item_type in IMPORT_ITEM_TYPES:
+            source_value = selected.get(item_type)
+            if source_value is not None:
+                self.import_item_source_vars[item_type].set(self.import_source_display_name(source_value))
+                self.import_item_status_vars[item_type].set(self.import_source_status(source_value))
+            elif selected.get("Zip") is not None:
+                self.import_item_source_vars[item_type].set("Not found in selected ZIP")
+                self.import_item_status_vars[item_type].set("Missing")
+            else:
+                self.import_item_source_vars[item_type].set("None selected")
+                self.import_item_status_vars[item_type].set("Not selected")
+
+    def import_source_display_name(self, source_value: Path | str) -> str:
+        if isinstance(source_value, Path):
+            return source_value.name
+
+        return source_value
+
+    def import_source_status(self, source_value: Path | str) -> str:
+        if isinstance(source_value, Path):
+            return "Selected"
+
+        return "In ZIP"
+
+    def update_generated_base_name(self) -> None:
+        parts = []
+
+        for field_name in self.import_naming_fields():
+            value = self.naming_field_vars.get(field_name)
+            if value is None:
+                continue
+
+            text = value.get().strip()
+            if text:
+                parts.append(text)
+
+        self.generated_base_name_var.set("_".join(parts))
+
+    def update_import_action_table(self, selected: dict[str, Path | str | None]) -> None:
+        self.import_action_tree.delete(*self.import_action_tree.get_children())
+        base_name = self.generated_base_name_var.get().strip() or "[base-name]"
+        targets = self.import_target_preview_paths(base_name)
+
+        for item_type in IMPORT_ITEM_TYPES:
+            source_value = selected.get(item_type)
+            if source_value is not None:
+                source_name = self.import_source_display_name(source_value)
+                status = self.import_source_status(source_value)
+                action = "Preview only"
+            elif selected.get("Zip") is not None:
+                source_name = "-"
+                status = "Missing"
+                action = "Skip"
+            else:
+                source_name = "-"
+                status = "Missing"
+                action = "Skip"
+
+            self.import_action_tree.insert(
+                "",
+                "end",
+                values=(item_type, source_name, targets[item_type], status, action),
+            )
+
+    def import_target_preview_paths(self, base_name: str) -> dict[str, str]:
+        target_library = self.applied_private_data.get("last", {}).get("target_library", "")
+        libraries = self.applied_private_data.get("libraries", {})
+        target_settings = libraries.get(target_library, {}) if isinstance(libraries, dict) else {}
+
+        if not isinstance(target_settings, dict):
+            target_settings = {}
+
+        symbol_file = target_settings.get("symbol_file", "[symbol-library].kicad_sym")
+        footprint_dir = target_settings.get("footprint_dir", "[footprint-library].pretty")
+
+        return {
+            "Symbol": str(symbol_file),
+            "Footprint": f"{footprint_dir}/{base_name}.kicad_mod",
+            "3D Model": f"{footprint_dir}/{base_name}.step",
+        }
+
+    def update_import_output_preview(self, selected: dict[str, Path | str | None]) -> None:
+        base_name = self.generated_base_name_var.get().strip() or "[base-name]"
+        targets = self.import_target_preview_paths(base_name)
+        lines = [
+            f"Symbol: {targets['Symbol']}",
+            f"Footprint: {targets['Footprint']}",
+            f"3D Model: {targets['3D Model']}",
+        ]
+        self.import_output_preview_var.set("\n".join(lines))
+
+        validation_lines = self.import_validation_lines(selected)
+        self.import_validation_summary_var.set("\n".join(validation_lines))
+
+    def import_validation_lines(self, selected: dict[str, Path | str | None]) -> list[str]:
+        missing_required = []
+        schema = self.naming_schema or self.read_naming_schema_for_gui() or {}
+        required_fields = schema.get("required_fields", [])
+
+        if not isinstance(required_fields, list):
+            required_fields = []
+
+        for field_name in required_fields:
+            value_var = self.naming_field_vars.get(str(field_name))
+            if value_var is None or not value_var.get().strip():
+                missing_required.append(str(field_name))
+
+        if not self.selected_import_files:
+            return [
+                "Not ready: no import files selected.",
+                "Apply Import is intentionally disabled in this milestone.",
+            ]
+
+        lines = []
+        if missing_required:
+            lines.append("Not ready: missing required fields: " + ", ".join(missing_required))
+        else:
+            lines.append("Preview ready: naming fields have required values.")
+
+        selected_count = sum(1 for item_type in IMPORT_ITEM_TYPES if selected.get(item_type) is not None)
+        if selected.get("Zip") is not None:
+            lines.append(f"ZIP selected; recognized import items: {selected_count}.")
+        elif selected_count == 0:
+            lines.append("No recognized KiCad import files selected.")
+        else:
+            lines.append(f"Recognized import items: {selected_count}.")
+
+        lines.append("Apply Import is intentionally disabled in this milestone.")
+        return lines
 
     def build_config_tab(self) -> None:
         self._config_controls_ready = False
@@ -1169,7 +1737,10 @@ class KiCadImportAssistantGui:
         self.primary_action_var.set("Apply Import")
         self.reset_action_var.set("Reset Import")
         self.primary_button.state(["disabled"])
-        self.reset_button.state(["disabled"])
+        if self.state.import_tab.dirty:
+            self.reset_button.state(["!disabled"])
+        else:
+            self.reset_button.state(["disabled"])
 
     def update_status_from_log(self, entry) -> None:
         self.set_status(entry.short_message, entry.severity)
@@ -1407,6 +1978,15 @@ class KiCadImportAssistantGui:
         )
 
     def reset_current_tab(self) -> None:
+        if self.state.active_tab == "import":
+            self.clear_import_selection_action()
+            self.logger.info(
+                "Import preview reset.",
+                category="import",
+                function_name="reset_current_tab",
+            )
+            return
+
         if self.state.active_tab == "config":
             self.revert_config_action()
             return

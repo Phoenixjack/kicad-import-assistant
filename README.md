@@ -312,7 +312,7 @@ The work-in-progress GUI launcher is separate from the existing CLI workflow:
 py kicad_import_assistant_gui.py
 ```
 
-The GUI launcher currently provides the main window shell, tabs, persistent status/action bar, private-data Config editing, read-only Schema browsing, diagnostics controls, optional rolling file logging, a filterable log viewer, and restored window placement. The existing CLI launcher remains the working import path while GUI workflow wiring is developed.
+The GUI launcher currently provides the main window shell, tabs, persistent status/action bar, static Import workflow preview, private-data Config editing, read-only Schema browsing, diagnostics controls, optional rolling file logging, a filterable log viewer, and restored window placement. The existing CLI launcher remains the working import path while GUI workflow wiring is developed.
 
 GUI development is intentionally happening in parallel with the existing CLI workflow. The GUI will be wired into shared helper functions gradually, while the CLI launcher remains available as the stable fallback until the GUI import workflow is complete.
 

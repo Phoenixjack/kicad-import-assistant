@@ -1,5 +1,33 @@
 # Version History
 
+## Unreleased - V0.20.4 Import Tab Static Workflow
+
+Feature branch: `feature/main-gui-import-workflow`
+
+Replaces the Import tab placeholders with a non-destructive static workflow preview.
+
+Changes:
+* Adds an Import Source section with file selection, clear selection, and selected item status rows.
+* Adds schema-driven naming controls and generated base-name preview.
+* Moves MPN to the top of the naming area with a disabled API Lookup placeholder.
+* Labels the schema `size` field as Pin Count in the GUI.
+* Shows recognized filenames inside selected ZIP files without extracting them.
+* Clears dependent naming fields except MPN when the selected library changes.
+* Enables Reset Import when the static import preview has unsaved work.
+* Adds a static Import Actions table for symbol, footprint, and 3D model rows.
+* Adds output preview and validation summary text for selected files and required naming fields.
+* Keeps actual import execution disabled for this milestone.
+* Bumps app version to `0.20.4`.
+
+Tested:
+* `python -m py_compile kicad_import_assistant.py` passes.
+* `python -m py_compile kicad_import_assistant_gui.py` passes.
+* `python -m compileall -f -q kia kicad_import_assistant.py kicad_import_assistant_gui.py` passes.
+
+Current limitations:
+* Import source selection only updates GUI preview state.
+* GUI import execution is not wired yet.
+
 ## Unreleased - V0.20.3 Schema Read-Only Tab
 
 Feature branch: `feature/main-gui-import-workflow`
