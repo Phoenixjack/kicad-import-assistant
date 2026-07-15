@@ -25,7 +25,9 @@ The GUI shell currently provides:
 * A separate `GuiLogger` for GUI log entries and status-strip messages.
 * Optional rolling file logging in the ignored `logs/` folder.
 * Config-tab editing for local paths, target library, path variable, library profiles, API keys, and diagnostics settings.
+* Vertical scrolling in all main tabs for smaller window sizes.
 * Schema-tab browsing for naming-schema field order, required fields, token sets, library families, and library-specific token overrides.
+* Automatic private-data creation from the tracked example file when the GUI starts and private data is missing.
 * Draft config behavior: Config-tab changes are not applied or saved until `Save Config` is pressed.
 * Automatic restore of the last GUI window size, position, and maximized state.
 

@@ -5,6 +5,7 @@ Tkinter GUI shell for the KiCad Import Assistant.
 import json
 import os
 import re
+import shutil
 import tkinter as tk
 from pathlib import Path
 from tkinter import filedialog, messagebox, ttk
@@ -21,11 +22,12 @@ TAB_IDS = {
     "schema": 2,
 }
 
-DEFAULT_WINDOW_GEOMETRY = "1200x850"
-MIN_WINDOW_WIDTH = 1100
-MIN_WINDOW_HEIGHT = 800
+DEFAULT_WINDOW_GEOMETRY = "650x850"
+MIN_WINDOW_WIDTH = 650
+MIN_WINDOW_HEIGHT = 675
 WINDOW_GEOMETRY_PATTERN = re.compile(r"^(\d+)x(\d+)([+-]\d+)?([+-]\d+)?$")
 PRIVATE_DATA_PATH = Path(__file__).resolve().parent.parent / "kicad_import_private_data.json"
+PRIVATE_DATA_EXAMPLE_PATH = Path(__file__).resolve().parent.parent / "kicad_import_private_data.example.json"
 NAMING_SCHEMA_PATH = Path(__file__).resolve().parent.parent / "kicad_import_naming_schema.json"
 DEFAULT_API_NAMES = ["mouser", "digikey", "octopart_nexar", "snapeda"]
 LIBRARY_PROFILE_FIELDS = [
@@ -44,6 +46,8 @@ class KiCadImportAssistantGui:
 
     def __init__(self) -> None:
         self.state = GuiAppState()
+        self.state.window_geometry = DEFAULT_WINDOW_GEOMETRY
+        self.private_data_created_from_example = False
         self.load_gui_preferences()
 
         self.root = tk.Tk()
@@ -80,6 +84,13 @@ class KiCadImportAssistantGui:
             category="app",
             function_name="KiCadImportAssistantGui.__init__",
         )
+
+        if self.private_data_created_from_example:
+            self.logger.success(
+                "Private data file created from example template.",
+                category="config",
+                function_name="KiCadImportAssistantGui.__init__",
+            )
 
     def load_gui_preferences(self) -> None:
         """
@@ -150,7 +161,10 @@ class KiCadImportAssistantGui:
         Quietly read ignored private data for GUI preferences.
         """
         if not PRIVATE_DATA_PATH.exists():
-            return {}
+            self.create_private_data_from_example_for_gui()
+
+            if not PRIVATE_DATA_PATH.exists():
+                return {}
 
         try:
             with PRIVATE_DATA_PATH.open("r", encoding="utf-8") as file:
@@ -162,6 +176,20 @@ class KiCadImportAssistantGui:
             return None
 
         return private_data
+
+    def create_private_data_from_example_for_gui(self) -> None:
+        """
+        Create ignored private data from the tracked example when possible.
+        """
+        if not PRIVATE_DATA_EXAMPLE_PATH.exists():
+            return
+
+        try:
+            shutil.copy2(PRIVATE_DATA_EXAMPLE_PATH, PRIVATE_DATA_PATH)
+        except OSError:
+            return
+
+        self.private_data_created_from_example = True
 
     def write_private_data_for_gui(self, private_data: dict) -> None:
         """
@@ -210,19 +238,62 @@ class KiCadImportAssistantGui:
         self.notebook.pack(side="top", fill="both", expand=True)
         self.notebook.bind("<<NotebookTabChanged>>", self.on_tab_changed)
 
-        self.import_tab = ttk.Frame(self.notebook, padding=10)
-        self.config_tab = ttk.Frame(self.notebook, padding=10)
-        self.schema_tab = ttk.Frame(self.notebook, padding=10)
+        self.import_tab_container = ttk.Frame(self.notebook)
+        self.import_tab = self.create_scrollable_tab(self.import_tab_container)
+        self.config_tab_container = ttk.Frame(self.notebook)
+        self.config_tab = self.create_scrollable_tab(self.config_tab_container)
+        self.schema_tab_container = ttk.Frame(self.notebook)
+        self.schema_tab = self.create_scrollable_tab(self.schema_tab_container)
 
-        self.notebook.add(self.import_tab, text="Import")
-        self.notebook.add(self.config_tab, text="Config")
-        self.notebook.add(self.schema_tab, text="Schema (Read Only)")
+        self.notebook.add(self.import_tab_container, text="Import")
+        self.notebook.add(self.config_tab_container, text="Config")
+        self.notebook.add(self.schema_tab_container, text="Schema (Read Only)")
 
         self.build_import_tab()
         self.build_config_tab()
         self.build_schema_tab()
 
         self.root.protocol("WM_DELETE_WINDOW", self.close_application)
+
+    def create_scrollable_tab(self, parent: ttk.Frame) -> ttk.Frame:
+        """
+        Create a vertically scrollable tab content frame.
+        """
+        parent.columnconfigure(0, weight=1)
+        parent.rowconfigure(0, weight=1)
+
+        canvas = tk.Canvas(parent, highlightthickness=0)
+        scrollbar = ttk.Scrollbar(parent, orient="vertical", command=canvas.yview)
+        content = ttk.Frame(canvas, padding=10)
+        window_id = canvas.create_window((0, 0), window=content, anchor="nw")
+
+        canvas.configure(yscrollcommand=scrollbar.set)
+        canvas.grid(row=0, column=0, sticky="nsew")
+        scrollbar.grid(row=0, column=1, sticky="ns")
+
+        def update_scroll_region(_event: tk.Event) -> None:
+            canvas.configure(scrollregion=canvas.bbox("all"))
+
+        def match_content_width(event: tk.Event) -> None:
+            canvas.itemconfigure(window_id, width=event.width)
+
+        def scroll_with_mousewheel(event: tk.Event) -> None:
+            canvas.yview_scroll(int(-1 * (event.delta / 120)), "units")
+
+        def bind_mousewheel(_event: tk.Event) -> None:
+            canvas.bind_all("<MouseWheel>", scroll_with_mousewheel)
+
+        def unbind_mousewheel(_event: tk.Event) -> None:
+            canvas.unbind_all("<MouseWheel>")
+
+        content.bind("<Configure>", update_scroll_region)
+        canvas.bind("<Configure>", match_content_width)
+        canvas.bind("<Enter>", bind_mousewheel)
+        canvas.bind("<Leave>", unbind_mousewheel)
+        content.bind("<Enter>", bind_mousewheel)
+        content.bind("<Leave>", unbind_mousewheel)
+
+        return content
 
     def build_import_tab(self) -> None:
         self.add_placeholder_section(

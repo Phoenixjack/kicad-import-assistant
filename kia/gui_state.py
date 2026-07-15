@@ -34,7 +34,7 @@ class GuiAppState:
     active_tab: str = "import"
     status_message: str = "Ready."
     status_severity: str = "info"
-    window_geometry: str = "1200x850"
+    window_geometry: str = ""
     window_state: str = "normal"
     log_settings: LogSettings = field(default_factory=LogSettings)
     import_tab: TabState = field(default_factory=TabState)

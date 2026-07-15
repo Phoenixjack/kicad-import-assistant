@@ -12,6 +12,8 @@ Changes:
 * Shows schema metadata, field order, required fields, optional fields, and selected-library hints.
 * Shows global token sets, per-library families, and per-library token overrides in a read-only table.
 * Routes schema load failures through the GUI logger/status strip.
+* Creates missing private data from `kicad_import_private_data.example.json` when the GUI starts.
+* Adds vertical scrolling to all main tabs so smaller window heights remain usable.
 * Bumps app version to `0.20.3`.
 
 Tested:
