@@ -1,5 +1,36 @@
 # Version History
 
+## Unreleased - V0.20.0 Main GUI Shell
+
+Feature branch: `feature/main-gui-import-workflow`
+
+Starts the parallel Tkinter GUI workflow while keeping the existing CLI launcher intact.
+
+Changes:
+* Adds `kicad_import_assistant_gui.py` as a separate GUI launcher.
+* Adds `kia/gui_app.py` for the main Tkinter window shell.
+* Adds `kia/gui_state.py` for GUI/session state separate from per-import `run_state`.
+* Adds `kia/gui_log.py` for in-memory GUI log entries and status-strip routing.
+* Adds Import, Config, and Schema tabs.
+* Adds persistent status/action bar with dynamic primary/reset labels.
+* Adds persistent `View Log` button.
+* Adds log viewer popup with severity filtering.
+* Adds initial Diagnostics / Logging controls placeholder on the Config tab.
+* Adds `logs/` to `.gitignore` for later file logging.
+* Bumps app version to `0.20.0`.
+
+Tested:
+* `python -m py_compile kicad_import_assistant.py` passes.
+* `python -m py_compile kicad_import_assistant_gui.py` passes.
+* `python -m compileall -f -q kia kicad_import_assistant.py kicad_import_assistant_gui.py` passes.
+* `git diff --check` passes.
+
+Current limitations:
+* GUI import execution is not wired yet.
+* Config tab controls are placeholders except for initial logging-control layout.
+* Schema tab is a read-only placeholder.
+* File logging is not active yet; current GUI logging is in-memory only.
+
 ## Unreleased - V0.19.0 Private Data Config Dialog
 
 Feature branch: `feature/private-data-config-dialog`

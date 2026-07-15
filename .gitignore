@@ -23,6 +23,9 @@ PROJECT_CONTEXT.md
 # Local GUI experiments
 experiments/
 
+# Local GUI/runtime logs
+logs/
+
 # Optional local backups
 *.bak
 *.backup.json

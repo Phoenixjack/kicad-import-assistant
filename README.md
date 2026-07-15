@@ -36,6 +36,7 @@ At startup, the importer opens a private-data config dialog so local paths, the 
 KiCad Import Assistant can currently:
 
 * Select either a vendor ZIP file or a loose KiCad import file set.
+* Launch an early standalone GUI shell through `kicad_import_assistant_gui.py`.
 * Review and edit core private/local config values at startup.
 * Create `kicad_import_private_data.json` from the example template when it is missing.
 * Validate import-source selections before staging:
@@ -303,11 +304,20 @@ or:
 python kicad_import_assistant.py
 ```
 
+The work-in-progress GUI launcher is separate from the existing CLI workflow:
+
+```powershell
+py kicad_import_assistant_gui.py
+```
+
+The GUI launcher currently provides the main window shell, tabs, persistent status/action bar, and in-memory log viewer. The existing CLI launcher remains the working import path while GUI workflow wiring is developed.
+
 ## Current Limitations
 
 The tool currently does not:
 * permanently delete imported source files
 * import from a loose folder of files
+* perform imports from the new GUI launcher yet
 * link an existing symbol to a newly imported footprint
 * link an existing 3D model to a newly imported footprint
 * guarantee that symbol `Footprint` properties point to an already-existing footprint when the footprint action is skipped

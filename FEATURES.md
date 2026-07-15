@@ -2,9 +2,35 @@
 
 This file describes the current capabilities and known limitations of KiCad Import Assistant.
 
-Current version: **Unreleased V0.19.0 private data config dialog branch**
+Current version: **Unreleased V0.20.0 main GUI shell branch**
 
-Current development branch: `feature/private-data-config-dialog`
+Current development branch: `feature/main-gui-import-workflow`
+
+## GUI Shell
+
+The project now includes an early parallel GUI launcher:
+
+```text
+kicad_import_assistant_gui.py
+```
+
+The GUI shell currently provides:
+* A standalone Tkinter main window.
+* Import, Config, and Schema tabs.
+* A persistent bottom status/action bar.
+* Dynamic primary/reset button labels by active tab.
+* A persistent `View Log` button.
+* An in-memory log viewer popup with severity filtering.
+* A separate `GuiAppState` object for GUI/session state.
+* A separate `GuiLogger` for GUI log entries and status-strip messages.
+
+The existing CLI launcher remains available:
+
+```text
+kicad_import_assistant.py
+```
+
+The GUI launcher is not wired to perform imports yet.
 
 ## Import Source Handling
 
