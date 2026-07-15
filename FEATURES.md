@@ -2,7 +2,7 @@
 
 This file describes the current capabilities and known limitations of KiCad Import Assistant.
 
-Current version: **Unreleased V0.20.1 logging and diagnostics branch**
+Current version: **Unreleased V0.20.2 Config tab branch**
 
 Current development branch: `feature/main-gui-import-workflow`
 
@@ -24,8 +24,8 @@ The GUI shell currently provides:
 * A separate `GuiAppState` object for GUI/session state.
 * A separate `GuiLogger` for GUI log entries and status-strip messages.
 * Optional rolling file logging in the ignored `logs/` folder.
-* Config-tab diagnostics controls for status level, file log level, max log size, retention, and diagnostics redaction.
-* Draft config behavior: diagnostics changes are not applied until `Save Config` is pressed.
+* Config-tab editing for local paths, target library, path variable, library profiles, API keys, and diagnostics settings.
+* Draft config behavior: Config-tab changes are not applied or saved until `Save Config` is pressed.
 * Automatic restore of the last GUI window size, position, and maximized state.
 
 The existing CLI launcher remains available:
@@ -463,7 +463,7 @@ The tool currently does not:
 * guarantee 3D model orientation
 * validate all pad/pin/schematic correctness
 * guarantee compatibility with all KiCad versions
-* provide a full advanced GUI configuration workflow for naming schema, suggestion rules, API keys, or library-profile editing
+* provide a full advanced GUI configuration workflow for naming schema or suggestion-rule editing
 * operate as a native KiCad plugin
 * query online part databases or distributor APIs
 * enrich part metadata from manufacturer part numbers

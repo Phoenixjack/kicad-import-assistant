@@ -153,6 +153,8 @@ path_variable
 
 The dialog also shows a read-only summary of the selected library profile. It does not edit naming schema, suggestion rules, API keys, or full library-profile definitions yet.
 
+The standalone GUI Config tab can edit the broader private-data set, including path settings, library profiles, API keys, and GUI diagnostics settings. Those GUI edits are saved only when `Save Config` is pressed.
+
 The canonical remembered import-source folder is:
 
 ```text
@@ -310,7 +312,7 @@ The work-in-progress GUI launcher is separate from the existing CLI workflow:
 py kicad_import_assistant_gui.py
 ```
 
-The GUI launcher currently provides the main window shell, tabs, persistent status/action bar, diagnostics controls, optional rolling file logging, a filterable log viewer, and restored window placement. The existing CLI launcher remains the working import path while GUI workflow wiring is developed.
+The GUI launcher currently provides the main window shell, tabs, persistent status/action bar, private-data Config editing, diagnostics controls, optional rolling file logging, a filterable log viewer, and restored window placement. The existing CLI launcher remains the working import path while GUI workflow wiring is developed.
 
 GUI development is intentionally happening in parallel with the existing CLI workflow. The GUI will be wired into shared helper functions gradually, while the CLI launcher remains available as the stable fallback until the GUI import workflow is complete.
 
@@ -342,7 +344,7 @@ The tool currently does not:
 * guarantee 3D model orientation
 * validate all pad/pin/schematic correctness
 * guarantee compatibility with all KiCad versions
-* provide a full advanced GUI configuration workflow for naming schema, suggestion rules, API keys, or library-profile editing
+* provide a full advanced GUI configuration workflow for naming schema or suggestion-rule editing
 * operate as a native KiCad plugin
 * query online part databases or distributor APIs
 * enrich part metadata from manufacturer part numbers

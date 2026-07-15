@@ -7,9 +7,10 @@ import os
 import re
 import tkinter as tk
 from pathlib import Path
-from tkinter import messagebox, ttk
+from tkinter import filedialog, messagebox, ttk
 
 from kia.app_info import APP_VERSION
+from kia.config_dialog import resolve_dialog_path
 from kia.gui_log import GuiLogger
 from kia.gui_state import GuiAppState, LogSettings
 
@@ -25,6 +26,14 @@ MIN_WINDOW_WIDTH = 1100
 MIN_WINDOW_HEIGHT = 800
 WINDOW_GEOMETRY_PATTERN = re.compile(r"^(\d+)x(\d+)([+-]\d+)?([+-]\d+)?$")
 PRIVATE_DATA_PATH = Path(__file__).resolve().parent.parent / "kicad_import_private_data.json"
+DEFAULT_API_NAMES = ["mouser", "digikey", "octopart_nexar", "snapeda"]
+LIBRARY_PROFILE_FIELDS = [
+    "prefix",
+    "footprint_dir",
+    "symbol_file",
+    "nickname",
+    "schema_profile",
+]
 
 
 class KiCadImportAssistantGui:
@@ -44,11 +53,16 @@ class KiCadImportAssistantGui:
         if self.state.window_state == "zoomed":
             self.root.state("zoomed")
 
-        self.applied_log_settings = LogSettings()
+        self.applied_private_data = self.read_private_data_for_gui() or {}
+        self.library_profiles = {}
+        self.active_profile_key = ""
+        self.api_keys = {}
+        self.active_api_name = ""
+        self.applied_log_settings = self.state.log_settings
         self.status_var = tk.StringVar(value=self.state.status_message)
         self.primary_action_var = tk.StringVar(value="Apply Import")
         self.reset_action_var = tk.StringVar(value="Reset Import")
-        self._logging_controls_ready = False
+        self._config_controls_ready = False
 
         self.logger = GuiLogger(
             settings=self.state.log_settings,
@@ -86,6 +100,19 @@ class KiCadImportAssistantGui:
         window_state = gui_preferences.get("window_state", "normal")
         if window_state in {"normal", "zoomed"}:
             self.state.window_state = window_state
+
+        log_settings = gui_preferences.get("logging", {})
+        if isinstance(log_settings, dict):
+            try:
+                self.state.log_settings = LogSettings(
+                    status_level=str(log_settings.get("status_level", "info")),
+                    file_log_level=str(log_settings.get("file_log_level", "off")),
+                    max_log_size_kb=int(log_settings.get("max_log_size_kb", 1024)),
+                    retained_log_count=int(log_settings.get("retained_log_count", 3)),
+                    redact_private_paths=bool(log_settings.get("redact_private_paths", True)),
+                )
+            except (TypeError, ValueError):
+                self.state.log_settings = LogSettings()
 
     def save_gui_preferences(self) -> None:
         """
@@ -175,8 +202,10 @@ class KiCadImportAssistantGui:
         outer = ttk.Frame(self.root, padding=10)
         outer.pack(fill="both", expand=True)
 
+        self.build_action_bar(outer)
+
         self.notebook = ttk.Notebook(outer)
-        self.notebook.pack(fill="both", expand=True)
+        self.notebook.pack(side="top", fill="both", expand=True)
         self.notebook.bind("<<NotebookTabChanged>>", self.on_tab_changed)
 
         self.import_tab = ttk.Frame(self.notebook, padding=10)
@@ -190,7 +219,6 @@ class KiCadImportAssistantGui:
         self.build_import_tab()
         self.build_config_tab()
         self.build_schema_tab()
-        self.build_action_bar(outer)
 
         self.root.protocol("WM_DELETE_WINDOW", self.close_application)
 
@@ -221,21 +249,118 @@ class KiCadImportAssistantGui:
         )
 
     def build_config_tab(self) -> None:
-        self.add_placeholder_section(
-            self.config_tab,
-            title="A. Paths",
-            body="Private-data path controls will be embedded here.",
-            row=0,
+        self._config_controls_ready = False
+        self.load_config_draft_from_private_data(self.applied_private_data)
+
+        paths_frame = ttk.LabelFrame(self.config_tab, text="A. Paths", padding=12)
+        paths_frame.grid(row=0, column=0, sticky="ew", pady=8)
+        paths_frame.columnconfigure(1, weight=1)
+
+        self.source_folder_var = tk.StringVar()
+        self.library_root_var = tk.StringVar()
+        self.library_folder_var = tk.StringVar()
+        self.target_library_var = tk.StringVar()
+        self.path_variable_var = tk.StringVar()
+
+        self.add_path_row(paths_frame, 0, "Source folder:", self.source_folder_var, "Select Source Folder")
+        self.add_path_row(paths_frame, 1, "Library root:", self.library_root_var, "Select Library Root")
+        self.add_path_row(paths_frame, 2, "Library folder:", self.library_folder_var, "Select Library Folder")
+
+        ttk.Label(paths_frame, text="Target library:").grid(row=3, column=0, sticky="w", pady=4)
+        self.target_library_combo = ttk.Combobox(
+            paths_frame,
+            textvariable=self.target_library_var,
+            values=[],
+            state="readonly",
+            width=36,
         )
-        self.add_placeholder_section(
-            self.config_tab,
-            title="B. Library Profiles",
-            body="Library profile editing will be added here.",
-            row=1,
+        self.target_library_combo.grid(row=3, column=1, sticky="ew", padx=(8, 0), pady=4)
+        self.target_library_combo.bind("<<ComboboxSelected>>", self.mark_config_dirty_from_controls)
+
+        ttk.Label(paths_frame, text="Path variable:").grid(row=4, column=0, sticky="w", pady=4)
+        ttk.Entry(paths_frame, textvariable=self.path_variable_var).grid(
+            row=4,
+            column=1,
+            sticky="ew",
+            padx=(8, 0),
+            pady=4,
         )
 
-        logging_frame = ttk.LabelFrame(self.config_tab, text="C. Diagnostics / Logging", padding=12)
-        logging_frame.grid(row=2, column=0, sticky="ew", pady=8)
+        profiles_frame = ttk.LabelFrame(self.config_tab, text="B. Library Profiles", padding=12)
+        profiles_frame.grid(row=1, column=0, sticky="nsew", pady=8)
+        profiles_frame.columnconfigure(1, weight=1)
+        self.config_tab.rowconfigure(1, weight=1)
+
+        list_frame = ttk.Frame(profiles_frame)
+        list_frame.grid(row=0, column=0, rowspan=7, sticky="ns", padx=(0, 12))
+
+        self.profile_listbox = tk.Listbox(list_frame, height=8, exportselection=False, width=24)
+        self.profile_listbox.pack(fill="both", expand=True)
+        self.profile_listbox.bind("<<ListboxSelect>>", self.on_profile_selected)
+
+        profile_buttons = ttk.Frame(list_frame)
+        profile_buttons.pack(fill="x", pady=(8, 0))
+        ttk.Button(profile_buttons, text="Add", command=self.add_library_profile).pack(side="left")
+        ttk.Button(profile_buttons, text="Duplicate", command=self.duplicate_library_profile).pack(
+            side="left",
+            padx=(6, 0),
+        )
+        ttk.Button(profile_buttons, text="Delete", command=self.delete_library_profile).pack(
+            side="left",
+            padx=(6, 0),
+        )
+
+        self.profile_key_var = tk.StringVar()
+        self.profile_prefix_var = tk.StringVar()
+        self.profile_footprint_dir_var = tk.StringVar()
+        self.profile_symbol_file_var = tk.StringVar()
+        self.profile_nickname_var = tk.StringVar()
+        self.profile_schema_profile_var = tk.StringVar()
+
+        self.add_profile_row(profiles_frame, 0, "Library key:", self.profile_key_var)
+        self.add_profile_row(profiles_frame, 1, "Prefix:", self.profile_prefix_var)
+        self.add_profile_row(profiles_frame, 2, "Footprint dir:", self.profile_footprint_dir_var)
+        self.add_profile_row(profiles_frame, 3, "Symbol file:", self.profile_symbol_file_var)
+        self.add_profile_row(profiles_frame, 4, "Nickname:", self.profile_nickname_var)
+        self.add_profile_row(profiles_frame, 5, "Schema profile:", self.profile_schema_profile_var)
+
+        api_frame = ttk.LabelFrame(self.config_tab, text="C. API Keys", padding=12)
+        api_frame.grid(row=2, column=0, sticky="ew", pady=8)
+        api_frame.columnconfigure(1, weight=1)
+
+        ttk.Label(api_frame, text="API:").grid(row=0, column=0, sticky="w", pady=4)
+        self.api_name_var = tk.StringVar()
+        self.api_combo = ttk.Combobox(
+            api_frame,
+            textvariable=self.api_name_var,
+            values=[],
+            state="readonly",
+            width=22,
+        )
+        self.api_combo.grid(row=0, column=1, sticky="w", padx=(8, 0), pady=4)
+        self.api_combo.bind("<<ComboboxSelected>>", self.on_api_selected)
+
+        ttk.Label(api_frame, text="API key:").grid(row=1, column=0, sticky="w", pady=4)
+        self.api_key_var = tk.StringVar()
+        self.api_key_entry = ttk.Entry(api_frame, textvariable=self.api_key_var, show="*")
+        self.api_key_entry.grid(row=1, column=1, sticky="ew", padx=(8, 0), pady=4)
+
+        self.api_key_visible_var = tk.BooleanVar(value=False)
+        ttk.Checkbutton(
+            api_frame,
+            text="Show",
+            variable=self.api_key_visible_var,
+            command=self.toggle_api_key_visibility,
+        ).grid(row=1, column=2, padx=(8, 0), pady=4)
+        ttk.Button(api_frame, text="Clear", command=self.clear_api_key).grid(
+            row=1,
+            column=3,
+            padx=(8, 0),
+            pady=4,
+        )
+
+        logging_frame = ttk.LabelFrame(self.config_tab, text="D. Diagnostics / Logging", padding=12)
+        logging_frame.grid(row=3, column=0, sticky="ew", pady=8)
         logging_frame.columnconfigure(1, weight=1)
 
         ttk.Label(logging_frame, text="Status level:").grid(row=0, column=0, sticky="w", pady=4)
@@ -298,7 +423,12 @@ class KiCadImportAssistantGui:
         ]:
             combo.bind("<<ComboboxSelected>>", self.mark_config_dirty_from_controls)
 
-        self._logging_controls_ready = True
+        self.apply_private_data_to_config_controls(self.applied_private_data)
+        self.apply_logging_settings_to_controls(self.applied_log_settings)
+        self.refresh_profile_listbox()
+        self.refresh_api_combo()
+        self.bind_config_value_traces()
+        self._config_controls_ready = True
 
     def build_schema_tab(self) -> None:
         self.add_placeholder_section(
@@ -314,9 +444,318 @@ class KiCadImportAssistantGui:
         parent.columnconfigure(0, weight=1)
         ttk.Label(frame, text=body).grid(row=0, column=0, sticky="w")
 
+    def add_path_row(
+        self,
+        parent: ttk.Frame,
+        row: int,
+        label: str,
+        value_var: tk.StringVar,
+        browse_title: str,
+    ) -> None:
+        ttk.Label(parent, text=label).grid(row=row, column=0, sticky="w", pady=4)
+        ttk.Entry(parent, textvariable=value_var).grid(
+            row=row,
+            column=1,
+            sticky="ew",
+            padx=(8, 0),
+            pady=4,
+        )
+        ttk.Button(
+            parent,
+            text="Browse...",
+            command=lambda: self.choose_folder_for_var(value_var, browse_title),
+        ).grid(row=row, column=2, padx=(8, 0), pady=4)
+
+    def add_profile_row(
+        self,
+        parent: ttk.Frame,
+        row: int,
+        label: str,
+        value_var: tk.StringVar,
+    ) -> None:
+        ttk.Label(parent, text=label).grid(row=row, column=1, sticky="w", pady=4)
+        ttk.Entry(parent, textvariable=value_var).grid(
+            row=row,
+            column=2,
+            sticky="ew",
+            padx=(8, 0),
+            pady=4,
+        )
+
+    def choose_folder_for_var(self, value_var: tk.StringVar, title: str) -> None:
+        initial_value = value_var.get().strip()
+        initial_dir = str(resolve_dialog_path(initial_value)) if initial_value else str(Path.home())
+
+        selected_folder = filedialog.askdirectory(
+            title=title,
+            initialdir=initial_dir,
+        )
+
+        if selected_folder:
+            value_var.set(selected_folder)
+            self.mark_config_dirty_from_controls()
+
+    def bind_config_value_traces(self) -> None:
+        tracked_vars = [
+            self.source_folder_var,
+            self.library_root_var,
+            self.library_folder_var,
+            self.path_variable_var,
+            self.profile_key_var,
+            self.profile_prefix_var,
+            self.profile_footprint_dir_var,
+            self.profile_symbol_file_var,
+            self.profile_nickname_var,
+            self.profile_schema_profile_var,
+            self.api_key_var,
+        ]
+
+        for value_var in tracked_vars:
+            value_var.trace_add("write", self.mark_config_dirty_from_trace)
+
+    def mark_config_dirty_from_trace(self, *_args) -> None:
+        self.mark_config_dirty_from_controls()
+
+    def load_config_draft_from_private_data(self, private_data: dict) -> None:
+        libraries = private_data.get("libraries", {})
+        if not isinstance(libraries, dict):
+            libraries = {}
+
+        self.library_profiles = {
+            str(key): dict(value) if isinstance(value, dict) else {}
+            for key, value in libraries.items()
+        }
+
+        api_integrations = private_data.get("api_integrations", {})
+        if not isinstance(api_integrations, dict):
+            api_integrations = {}
+
+        api_keys = api_integrations.get("keys", {})
+        if not isinstance(api_keys, dict):
+            api_keys = {}
+
+        self.api_keys = {str(key): str(value) for key, value in api_keys.items()}
+        for api_name in DEFAULT_API_NAMES:
+            self.api_keys.setdefault(api_name, "")
+
+    def apply_private_data_to_config_controls(self, private_data: dict) -> None:
+        last_config = private_data.get("last", {})
+        if not isinstance(last_config, dict):
+            last_config = {}
+
+        self.source_folder_var.set(str(last_config.get("source_folder", "")))
+        self.library_root_var.set(str(last_config.get("library_root", "")))
+        self.library_folder_var.set(str(last_config.get("library_folder", "")))
+        self.target_library_var.set(str(last_config.get("target_library", "")))
+        self.path_variable_var.set(str(private_data.get("path_variable", "")))
+
+    def refresh_profile_listbox(self) -> None:
+        self.profile_listbox.delete(0, tk.END)
+
+        for profile_key in sorted(self.library_profiles):
+            self.profile_listbox.insert(tk.END, profile_key)
+
+        profile_keys = list(self.profile_listbox.get(0, tk.END))
+        self.target_library_combo["values"] = profile_keys
+
+        target_library = self.target_library_var.get().strip()
+        if target_library not in self.library_profiles and profile_keys:
+            self.target_library_var.set(profile_keys[0])
+
+        if target_library in self.library_profiles:
+            self.select_profile_by_key(target_library)
+        elif profile_keys:
+            self.select_profile_by_key(profile_keys[0])
+        else:
+            self.load_profile_to_controls("", {})
+
+    def select_profile_by_key(self, profile_key: str) -> None:
+        profile_keys = list(self.profile_listbox.get(0, tk.END))
+
+        if profile_key not in profile_keys:
+            return
+
+        index = profile_keys.index(profile_key)
+        self.profile_listbox.selection_clear(0, tk.END)
+        self.profile_listbox.selection_set(index)
+        self.profile_listbox.activate(index)
+        self.profile_listbox.see(index)
+        self.load_profile_to_controls(profile_key, self.library_profiles.get(profile_key, {}))
+
+    def load_profile_to_controls(self, profile_key: str, profile_data: dict) -> None:
+        self.active_profile_key = profile_key
+        self.profile_key_var.set(profile_key)
+        self.profile_prefix_var.set(str(profile_data.get("prefix", "")))
+        self.profile_footprint_dir_var.set(str(profile_data.get("footprint_dir", "")))
+        self.profile_symbol_file_var.set(str(profile_data.get("symbol_file", "")))
+        self.profile_nickname_var.set(str(profile_data.get("nickname", "")))
+        self.profile_schema_profile_var.set(str(profile_data.get("schema_profile", "")))
+
+    def sync_current_profile_from_controls(self) -> bool:
+        if not self.active_profile_key and not self.profile_key_var.get().strip():
+            return True
+
+        new_key = self.profile_key_var.get().strip()
+
+        if not new_key:
+            return False
+
+        if (
+            self.active_profile_key
+            and new_key != self.active_profile_key
+            and new_key in self.library_profiles
+        ):
+            return False
+
+        previous_key = self.active_profile_key
+        profile_data = {
+            "prefix": self.profile_prefix_var.get().strip(),
+            "footprint_dir": self.profile_footprint_dir_var.get().strip(),
+            "symbol_file": self.profile_symbol_file_var.get().strip(),
+            "nickname": self.profile_nickname_var.get().strip(),
+            "schema_profile": self.profile_schema_profile_var.get().strip(),
+        }
+
+        if self.active_profile_key and new_key != self.active_profile_key:
+            self.library_profiles.pop(self.active_profile_key, None)
+
+        self.library_profiles[new_key] = profile_data
+        self.active_profile_key = new_key
+
+        if self.target_library_var.get().strip() == previous_key:
+            self.target_library_var.set(new_key)
+
+        return True
+
+    def on_profile_selected(self, event: tk.Event) -> None:
+        del event
+
+        selected = self.profile_listbox.curselection()
+        if not selected:
+            return
+
+        selected_key = self.profile_listbox.get(selected[0])
+
+        if selected_key == self.active_profile_key:
+            return
+
+        previous_key = self.active_profile_key
+        if self._config_controls_ready and not self.sync_current_profile_from_controls():
+            self.set_status("Current library profile has an invalid or duplicate key.", "warning")
+            self.select_profile_by_key(self.active_profile_key)
+            return
+
+        if previous_key and previous_key != self.active_profile_key:
+            self.refresh_profile_listbox()
+            if selected_key in self.library_profiles:
+                self.select_profile_by_key(selected_key)
+            return
+
+        controls_were_ready = self._config_controls_ready
+        self._config_controls_ready = False
+        self.load_profile_to_controls(selected_key, self.library_profiles.get(selected_key, {}))
+        self._config_controls_ready = controls_were_ready
+
+    def unique_profile_key(self, base_key: str) -> str:
+        candidate = base_key
+        index = 2
+
+        while candidate in self.library_profiles:
+            candidate = f"{base_key}_{index}"
+            index += 1
+
+        return candidate
+
+    def add_library_profile(self) -> None:
+        if not self.sync_current_profile_from_controls():
+            self.set_status("Current library profile has an invalid or duplicate key.", "warning")
+            return
+
+        profile_key = self.unique_profile_key("NEW_LIBRARY")
+        self.library_profiles[profile_key] = {
+            "prefix": "",
+            "footprint_dir": "",
+            "symbol_file": "",
+            "nickname": "",
+            "schema_profile": "",
+        }
+        self.refresh_profile_listbox()
+        self.select_profile_by_key(profile_key)
+        self.mark_config_dirty_from_controls()
+
+    def duplicate_library_profile(self) -> None:
+        if not self.sync_current_profile_from_controls():
+            self.set_status("Current library profile has an invalid or duplicate key.", "warning")
+            return
+
+        if not self.active_profile_key:
+            return
+
+        profile_key = self.unique_profile_key(f"{self.active_profile_key}_COPY")
+        self.library_profiles[profile_key] = dict(self.library_profiles.get(self.active_profile_key, {}))
+        self.refresh_profile_listbox()
+        self.select_profile_by_key(profile_key)
+        self.mark_config_dirty_from_controls()
+
+    def delete_library_profile(self) -> None:
+        if not self.active_profile_key:
+            return
+
+        delete_profile = messagebox.askyesno(
+            title="Delete Library Profile",
+            message=f"Delete library profile '{self.active_profile_key}'?",
+        )
+
+        if not delete_profile:
+            return
+
+        self.library_profiles.pop(self.active_profile_key, None)
+        self.active_profile_key = ""
+        self.refresh_profile_listbox()
+        self.mark_config_dirty_from_controls()
+
+    def refresh_api_combo(self) -> None:
+        default_names = [api_name for api_name in DEFAULT_API_NAMES if api_name in self.api_keys]
+        extra_names = sorted(api_name for api_name in self.api_keys if api_name not in DEFAULT_API_NAMES)
+        api_names = default_names + extra_names
+        self.api_combo["values"] = api_names
+
+        if api_names:
+            selected_api = self.active_api_name if self.active_api_name in api_names else api_names[0]
+            self.api_name_var.set(selected_api)
+            self.load_api_key_to_controls(selected_api)
+        else:
+            self.api_name_var.set("")
+            self.active_api_name = ""
+            self.api_key_var.set("")
+
+    def load_api_key_to_controls(self, api_name: str) -> None:
+        self.active_api_name = api_name
+        self.api_name_var.set(api_name)
+        self.api_key_var.set(self.api_keys.get(api_name, ""))
+
+    def sync_current_api_from_controls(self) -> None:
+        if self.active_api_name:
+            self.api_keys[self.active_api_name] = self.api_key_var.get()
+
+    def on_api_selected(self, event: tk.Event) -> None:
+        del event
+        self.sync_current_api_from_controls()
+        controls_were_ready = self._config_controls_ready
+        self._config_controls_ready = False
+        self.load_api_key_to_controls(self.api_name_var.get())
+        self._config_controls_ready = controls_were_ready
+
+    def toggle_api_key_visibility(self) -> None:
+        self.api_key_entry.configure(show="" if self.api_key_visible_var.get() else "*")
+
+    def clear_api_key(self) -> None:
+        self.api_key_var.set("")
+        self.mark_config_dirty_from_controls()
+
     def build_action_bar(self, parent: ttk.Frame) -> None:
         bar = ttk.Frame(parent, padding=(0, 10, 0, 0))
-        bar.pack(fill="x")
+        bar.pack(side="bottom", fill="x")
         bar.columnconfigure(0, weight=1)
 
         ttk.Label(bar, textvariable=self.status_var).grid(row=0, column=0, sticky="w")
@@ -470,31 +909,153 @@ class KiCadImportAssistantGui:
     def mark_config_dirty_from_controls(self, event: tk.Event | None = None) -> None:
         del event
 
-        if not self._logging_controls_ready:
+        if not self._config_controls_ready:
             return
 
         self.state.config_tab.dirty = True
         self.set_status("Config changes pending. Save Config or Revert Config.", "warning")
         self.refresh_action_bar()
 
-    def save_config_action(self) -> None:
+    def validate_config_controls(self) -> list[str]:
+        errors = []
+
+        required_paths = [
+            ("Source folder", self.source_folder_var.get()),
+            ("Library root", self.library_root_var.get()),
+            ("Library folder", self.library_folder_var.get()),
+        ]
+
+        for label, path_value in required_paths:
+            if not path_value.strip():
+                errors.append(f"{label} is required.")
+                continue
+
+            resolved_path = resolve_dialog_path(path_value)
+            if not resolved_path.exists() or not resolved_path.is_dir():
+                errors.append(f"{label} must be an existing folder.")
+
+        if not self.path_variable_var.get().strip():
+            errors.append("Path variable is required.")
+
+        target_library = self.target_library_var.get().strip()
+        if not target_library:
+            errors.append("Target library is required.")
+        elif target_library not in self.library_profiles:
+            errors.append("Target library must match a configured library profile.")
+
+        if not self.library_profiles:
+            errors.append("At least one library profile is required.")
+
+        for profile_key, profile_data in self.library_profiles.items():
+            if not profile_key.strip():
+                errors.append("Library profile keys cannot be blank.")
+
+            for field_name in LIBRARY_PROFILE_FIELDS:
+                if not str(profile_data.get(field_name, "")).strip():
+                    errors.append(f"Library profile '{profile_key}' is missing {field_name}.")
+
+        return errors
+
+    def build_private_data_from_config_controls(self) -> dict | None:
+        if not self.sync_current_profile_from_controls():
+            self.set_status("Current library profile has an invalid or duplicate key.", "warning")
+            return None
+
+        self.sync_current_api_from_controls()
+
+        private_data = self.read_private_data_for_gui()
+        if private_data is None:
+            messagebox.showerror(
+                title="Config Save Failed",
+                message="Private data is invalid. Fix the JSON file before saving from the GUI.",
+            )
+            return None
+
+        private_data.setdefault("last", {})
+        private_data["last"]["source_folder"] = self.source_folder_var.get().strip()
+        private_data["last"]["library_root"] = self.library_root_var.get().strip()
+        private_data["last"]["library_folder"] = self.library_folder_var.get().strip()
+        private_data["last"]["target_library"] = self.target_library_var.get().strip()
+
+        private_data["path_variable"] = self.path_variable_var.get().strip()
+        private_data["libraries"] = {
+            profile_key: dict(profile_data)
+            for profile_key, profile_data in sorted(self.library_profiles.items())
+        }
+
+        private_data.setdefault("api_integrations", {})
+        private_data["api_integrations"]["keys"] = dict(sorted(self.api_keys.items()))
+
         settings = self.logging_settings_from_controls()
+        private_data.setdefault("gui", {})
+        private_data["gui"]["logging"] = {
+            "status_level": settings.status_level,
+            "file_log_level": settings.file_log_level,
+            "max_log_size_kb": settings.max_log_size_kb,
+            "retained_log_count": settings.retained_log_count,
+            "redact_private_paths": settings.redact_private_paths,
+        }
+
+        return private_data
+
+    def save_config_action(self) -> None:
+        private_data = self.build_private_data_from_config_controls()
+
+        if private_data is None:
+            return
+
+        validation_errors = self.validate_config_controls()
+        if validation_errors:
+            messagebox.showerror(
+                title="Config Validation Failed",
+                message="\n".join(validation_errors[:8]),
+            )
+            self.logger.warning(
+                "Config was not saved because validation failed.",
+                details="\n".join(validation_errors),
+                category="config",
+                function_name="save_config_action",
+            )
+            return
+
+        settings = self.logging_settings_from_controls()
+
+        try:
+            self.write_private_data_for_gui(private_data)
+        except OSError as error:
+            del error
+            messagebox.showerror(
+                title="Config Save Failed",
+                message="Could not save private data. Check file permissions.",
+            )
+            return
+
+        self.applied_private_data = private_data
         self.applied_log_settings = settings
         self.state.log_settings = settings
         self.logger.update_settings(settings)
+        self._config_controls_ready = False
+        self.load_config_draft_from_private_data(self.applied_private_data)
+        self.refresh_profile_listbox()
+        self.refresh_api_combo()
+        self._config_controls_ready = True
         self.state.config_tab.dirty = False
         self.refresh_action_bar()
-        self.set_status("Config settings saved for this session.", "success")
+        self.set_status("Config saved.", "success")
         self.logger.info(
-            "Config settings saved for this session.",
+            "Config saved.",
             category="config",
             function_name="save_config_action",
         )
 
     def revert_config_action(self) -> None:
-        self._logging_controls_ready = False
+        self._config_controls_ready = False
+        self.load_config_draft_from_private_data(self.applied_private_data)
+        self.apply_private_data_to_config_controls(self.applied_private_data)
+        self.refresh_profile_listbox()
+        self.refresh_api_combo()
         self.apply_logging_settings_to_controls(self.applied_log_settings)
-        self._logging_controls_ready = True
+        self._config_controls_ready = True
         self.state.config_tab.dirty = False
         self.refresh_action_bar()
         self.set_status("Config changes reverted.", "info")

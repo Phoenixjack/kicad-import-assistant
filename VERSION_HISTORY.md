@@ -1,5 +1,29 @@
 # Version History
 
+## Unreleased - V0.20.2 Config Tab
+
+Feature branch: `feature/main-gui-import-workflow`
+
+Turns the GUI Config tab into a draft editor for ignored private data.
+
+Changes:
+* Replaces Config-tab path placeholders with editable `last.*` path fields, target library selection, and path variable editing.
+* Adds library-profile list editing with add, duplicate, delete, and per-profile detail fields.
+* Adds storage-only API key editing for configured API integrations.
+* Saves Config-tab changes only when `Save Config` is pressed.
+* Reverts unsaved Config-tab changes from the last saved private-data state.
+* Persists GUI logging settings in the private data `gui.logging` section.
+* Bumps app version to `0.20.2`.
+
+Tested:
+* `python -m py_compile kicad_import_assistant.py` passes.
+* `python -m py_compile kicad_import_assistant_gui.py` passes.
+* `python -m compileall -f -q kia kicad_import_assistant.py kicad_import_assistant_gui.py` passes.
+
+Current limitations:
+* API keys are stored only; lookup workflows are not wired yet.
+* GUI import execution is not wired yet.
+
 ## Unreleased - V0.20.1 Logging and Diagnostics
 
 Feature branch: `feature/main-gui-import-workflow`
@@ -27,7 +51,6 @@ Tested:
 * GUI window-geometry helper check passes for valid/invalid geometry handling.
 
 Current limitations:
-* Logging settings apply for the current session only until the Config tab is wired to private-data save/load.
 * GUI import execution is not wired yet.
 
 ## Unreleased - V0.20.0 Main GUI Shell
