@@ -366,7 +366,7 @@ class KiCadImportAssistantGui:
             command=self.clear_import_selection_action,
         ).grid(row=0, column=3, padx=(8, 0), pady=4)
 
-        ttk.Label(source_frame, text="Target library:").grid(row=1, column=0, sticky="w", pady=4)
+        ttk.Label(source_frame, text="Destination:").grid(row=1, column=0, sticky="w", pady=4)
         self.import_target_library_var = tk.StringVar()
         self.import_target_library_combo = ttk.Combobox(
             source_frame,
@@ -398,6 +398,9 @@ class KiCadImportAssistantGui:
         naming_frame.columnconfigure(1, weight=1)
         naming_frame.columnconfigure(3, weight=1)
 
+        for field_name in self.import_naming_fields():
+            self.naming_field_vars[field_name] = tk.StringVar()
+
         for index, field_name in enumerate(self.import_display_fields()):
             if field_name == "mpn":
                 row = 0
@@ -409,8 +412,7 @@ class KiCadImportAssistantGui:
                 label_column = 0 if adjusted_index % 2 == 0 else 2
                 value_column = label_column + 1
 
-            value_var = tk.StringVar()
-            self.naming_field_vars[field_name] = value_var
+            value_var = self.naming_field_vars[field_name]
             ttk.Label(naming_frame, text=f"{self.format_field_label(field_name)}:").grid(
                 row=row,
                 column=label_column,
@@ -507,6 +509,7 @@ class KiCadImportAssistantGui:
 
     def import_display_fields(self) -> list[str]:
         fields = self.import_naming_fields()
+        fields = [field_name for field_name in fields if field_name != "library"]
 
         if "mpn" not in fields:
             return fields
@@ -924,7 +927,9 @@ class KiCadImportAssistantGui:
     def update_import_output_preview(self, selected: dict[str, Path | str | None]) -> None:
         base_name = self.generated_base_name_var.get().strip() or "[base-name]"
         targets = self.import_target_preview_paths(base_name)
+        destination = self.import_target_library_var.get().strip() or "[destination]"
         lines = [
+            f"Destination: {destination}",
             f"Symbol: {targets['Symbol']}",
             f"Footprint: {targets['Footprint']}",
             f"3D Model: {targets['3D Model']}",
@@ -978,17 +983,13 @@ class KiCadImportAssistantGui:
         paths_frame.grid(row=0, column=0, sticky="ew", pady=8)
         paths_frame.columnconfigure(1, weight=1)
 
-        self.source_folder_var = tk.StringVar()
         self.library_root_var = tk.StringVar()
-        self.library_folder_var = tk.StringVar()
         self.target_library_var = tk.StringVar()
         self.path_variable_var = tk.StringVar()
 
-        self.add_path_row(paths_frame, 0, "Source folder:", self.source_folder_var, "Select Source Folder")
-        self.add_path_row(paths_frame, 1, "Library root:", self.library_root_var, "Select Library Root")
-        self.add_path_row(paths_frame, 2, "Library folder:", self.library_folder_var, "Select Library Folder")
+        self.add_path_row(paths_frame, 0, "Library root:", self.library_root_var, "Select Library Root")
 
-        ttk.Label(paths_frame, text="Target library:").grid(row=3, column=0, sticky="w", pady=4)
+        ttk.Label(paths_frame, text="Active destination:").grid(row=1, column=0, sticky="w", pady=4)
         self.target_library_combo = ttk.Combobox(
             paths_frame,
             textvariable=self.target_library_var,
@@ -996,19 +997,19 @@ class KiCadImportAssistantGui:
             state="readonly",
             width=36,
         )
-        self.target_library_combo.grid(row=3, column=1, sticky="ew", padx=(8, 0), pady=4)
+        self.target_library_combo.grid(row=1, column=1, sticky="ew", padx=(8, 0), pady=4)
         self.target_library_combo.bind("<<ComboboxSelected>>", self.mark_config_dirty_from_controls)
 
-        ttk.Label(paths_frame, text="Path variable:").grid(row=4, column=0, sticky="w", pady=4)
+        ttk.Label(paths_frame, text="Path variable:").grid(row=2, column=0, sticky="w", pady=4)
         ttk.Entry(paths_frame, textvariable=self.path_variable_var).grid(
-            row=4,
+            row=2,
             column=1,
             sticky="ew",
             padx=(8, 0),
             pady=4,
         )
 
-        profiles_frame = ttk.LabelFrame(self.config_tab, text="B. Target Libraries", padding=12)
+        profiles_frame = ttk.LabelFrame(self.config_tab, text="B. Import Destinations", padding=12)
         profiles_frame.grid(row=1, column=0, sticky="nsew", pady=8)
         profiles_frame.columnconfigure(1, weight=1)
         self.config_tab.rowconfigure(1, weight=1)
@@ -1039,7 +1040,7 @@ class KiCadImportAssistantGui:
         self.profile_nickname_var = tk.StringVar()
         self.profile_schema_profile_var = tk.StringVar()
 
-        self.add_profile_row(profiles_frame, 0, "Target key:", self.profile_key_var)
+        self.add_profile_row(profiles_frame, 0, "Destination key:", self.profile_key_var)
         self.add_profile_row(profiles_frame, 1, "Naming prefix:", self.profile_prefix_var)
         self.add_profile_row(profiles_frame, 2, "Footprint dir:", self.profile_footprint_dir_var)
         self.add_profile_row(profiles_frame, 3, "Symbol file:", self.profile_symbol_file_var)
@@ -1476,9 +1477,7 @@ class KiCadImportAssistantGui:
 
     def bind_config_value_traces(self) -> None:
         tracked_vars = [
-            self.source_folder_var,
             self.library_root_var,
-            self.library_folder_var,
             self.path_variable_var,
             self.profile_key_var,
             self.profile_prefix_var,
@@ -1522,9 +1521,7 @@ class KiCadImportAssistantGui:
         if not isinstance(last_config, dict):
             last_config = {}
 
-        self.source_folder_var.set(str(last_config.get("source_folder", "")))
         self.library_root_var.set(str(last_config.get("library_root", "")))
-        self.library_folder_var.set(str(last_config.get("library_folder", "")))
         self.target_library_var.set(str(last_config.get("target_library", "")))
         self.path_variable_var.set(str(private_data.get("path_variable", "")))
 
@@ -1620,7 +1617,7 @@ class KiCadImportAssistantGui:
 
         previous_key = self.active_profile_key
         if self._config_controls_ready and not self.sync_current_profile_from_controls():
-            self.set_status("Current target library has an invalid or duplicate key.", "warning")
+            self.set_status("Current destination has an invalid or duplicate key.", "warning")
             self.select_profile_by_key(self.active_profile_key)
             return
 
@@ -1647,7 +1644,7 @@ class KiCadImportAssistantGui:
 
     def add_library_profile(self) -> None:
         if not self.sync_current_profile_from_controls():
-            self.set_status("Current target library has an invalid or duplicate key.", "warning")
+            self.set_status("Current destination has an invalid or duplicate key.", "warning")
             return
 
         profile_key = self.unique_profile_key("NEW_LIBRARY")
@@ -1664,7 +1661,7 @@ class KiCadImportAssistantGui:
 
     def duplicate_library_profile(self) -> None:
         if not self.sync_current_profile_from_controls():
-            self.set_status("Current target library has an invalid or duplicate key.", "warning")
+            self.set_status("Current destination has an invalid or duplicate key.", "warning")
             return
 
         if not self.active_profile_key:
@@ -1681,8 +1678,8 @@ class KiCadImportAssistantGui:
             return
 
         delete_profile = messagebox.askyesno(
-            title="Delete Target Library",
-            message=f"Delete target library '{self.active_profile_key}'?",
+            title="Delete Destination",
+            message=f"Delete destination '{self.active_profile_key}'?",
         )
 
         if not delete_profile:
@@ -1902,9 +1899,7 @@ class KiCadImportAssistantGui:
         errors = []
 
         required_paths = [
-            ("Source folder", self.source_folder_var.get()),
             ("Library root", self.library_root_var.get()),
-            ("Library folder", self.library_folder_var.get()),
         ]
 
         for label, path_value in required_paths:
@@ -1921,26 +1916,26 @@ class KiCadImportAssistantGui:
 
         target_library = self.target_library_var.get().strip()
         if not target_library:
-            errors.append("Target library is required.")
+            errors.append("Active destination is required.")
         elif target_library not in self.library_profiles:
-            errors.append("Target library must match a configured target library.")
+            errors.append("Active destination must match a configured destination.")
 
         if not self.library_profiles:
-            errors.append("At least one target library is required.")
+            errors.append("At least one destination is required.")
 
         for profile_key, profile_data in self.library_profiles.items():
             if not profile_key.strip():
-                errors.append("Target library keys cannot be blank.")
+                errors.append("Destination keys cannot be blank.")
 
             for field_name in LIBRARY_PROFILE_FIELDS:
                 if not str(profile_data.get(field_name, "")).strip():
-                    errors.append(f"Target library '{profile_key}' is missing {field_name}.")
+                    errors.append(f"Destination '{profile_key}' is missing {field_name}.")
 
         return errors
 
     def build_private_data_from_config_controls(self) -> dict | None:
         if not self.sync_current_profile_from_controls():
-            self.set_status("Current target library has an invalid or duplicate key.", "warning")
+            self.set_status("Current destination has an invalid or duplicate key.", "warning")
             return None
 
         self.sync_current_api_from_controls()
@@ -1954,9 +1949,7 @@ class KiCadImportAssistantGui:
             return None
 
         private_data.setdefault("last", {})
-        private_data["last"]["source_folder"] = self.source_folder_var.get().strip()
         private_data["last"]["library_root"] = self.library_root_var.get().strip()
-        private_data["last"]["library_folder"] = self.library_folder_var.get().strip()
         private_data["last"]["target_library"] = self.target_library_var.get().strip()
 
         private_data["path_variable"] = self.path_variable_var.get().strip()

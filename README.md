@@ -29,7 +29,7 @@ api_integrations.keys
 
 Normal successful imports save updated local state only to `kicad_import_private_data.json`. The tracked public default config is read during startup but is not modified during normal use.
 
-At startup, the importer opens a private-data config dialog so local paths, the target library profile, and the KiCad path variable can be reviewed or corrected before the import workflow begins. Saving from this dialog writes only to `kicad_import_private_data.json`.
+At startup, the importer opens a private-data config dialog so local paths, the active import destination, and the KiCad path variable can be reviewed or corrected before the import workflow begins. Saving from this dialog writes only to `kicad_import_private_data.json`.
 
 ## What It Does
 
@@ -151,9 +151,9 @@ last.target_library
 path_variable
 ```
 
-The dialog also shows a read-only summary of the selected library profile. It does not edit naming schema, suggestion rules, API keys, or full library-profile definitions yet.
+The dialog also shows a read-only summary of the selected import destination. It does not edit naming schema, suggestion rules, API keys, or full destination definitions yet.
 
-The standalone GUI Config tab can edit the broader private-data set, including path settings, library profiles, API keys, and GUI diagnostics settings. Those GUI edits are saved only when `Save Config` is pressed.
+The standalone GUI Config tab can edit the broader private-data set, including library root, import destinations, API keys, and GUI diagnostics settings. Those GUI edits are saved only when `Save Config` is pressed.
 
 The canonical remembered import-source folder is:
 
@@ -324,7 +324,7 @@ V0.20.1  Logging and diagnostics
 V0.20.2  Config tab
 V0.20.3  Schema read-only tab
 V0.20.4  Import tab static workflow
-V0.20.5  Target library alignment
+V0.20.5  Destination alignment
 V0.20.6  Source selection and naming preview
 V0.20.7  Import action planning
 V0.20.8  CLI prompt retirement pass

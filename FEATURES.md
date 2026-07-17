@@ -2,7 +2,7 @@
 
 This file describes the current capabilities and known limitations of KiCad Import Assistant.
 
-Current version: **Unreleased V0.20.5 Target library alignment branch**
+Current version: **Unreleased V0.20.5 Destination alignment branch**
 
 Current development branch: `feature/main-gui-import-workflow`
 
@@ -48,7 +48,7 @@ V0.20.1  Logging and diagnostics
 V0.20.2  Config tab
 V0.20.3  Schema read-only tab
 V0.20.4  Import tab static workflow
-V0.20.5  Target library alignment
+V0.20.5  Destination alignment
 V0.20.6  Source selection and naming preview
 V0.20.7  Import action planning
 V0.20.8  CLI prompt retirement pass
@@ -149,13 +149,13 @@ The dialog can:
   * `last.library_folder`
   * `last.target_library`
   * `path_variable`
-* Select the target library from configured library-profile keys.
-* Show a read-only summary of the selected library profile.
+* Select the active destination from configured private-data entries.
+* Show a read-only summary of the selected destination.
 * Save changes only to `kicad_import_private_data.json`.
 * Continue without saving.
 * Cancel startup before the import workflow begins.
 
-The dialog validates required folders, the selected target library, the KiCad path variable, and the minimum selected-library fields needed by the importer.
+The dialog validates required folders, the selected destination, the KiCad path variable, and the minimum destination fields needed by the importer.
 
 Current limitations:
 * Library profiles are displayed but not fully editable yet.
