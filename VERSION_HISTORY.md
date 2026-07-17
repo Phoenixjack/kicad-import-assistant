@@ -1,5 +1,28 @@
 # Version History
 
+## Unreleased - V0.20.6 Config Destination Browse Helpers
+
+Feature branch: `feature/main-gui-import-workflow`
+
+Simplifies Config-tab destination editing and adds browse helpers for destination paths.
+
+Changes:
+* Removes the active/current destination selector from the standalone GUI Config tab while preserving `last.target_library` in private data.
+* Adds a folder picker for destination `footprint_dir` values.
+* Adds a file picker for destination `symbol_file` values.
+* Stores browsed destination paths relative to `last.library_root` or the selected `.pretty` folder when possible.
+* Suggests a matching `.kicad_sym` file after selecting a `.pretty` folder, and offers to create it when missing.
+* Stops adding the redundant footprint `Needs3DModelValidation` metadata property.
+* Bumps app version to `0.20.6`.
+
+Tested:
+* `python -m py_compile kicad_import_assistant.py` passes.
+* `python -m py_compile kicad_import_assistant_gui.py` passes.
+* `python -m compileall -f -q kia kicad_import_assistant.py kicad_import_assistant_gui.py` passes.
+
+Current limitations:
+* GUI import execution is not wired yet.
+
 ## Unreleased - V0.20.5 Destination Alignment
 
 Feature branch: `feature/main-gui-import-workflow`
@@ -167,11 +190,12 @@ Planned V0.20.x follow-up:
 * V0.20.2: Config tab.
 * V0.20.3: Schema read-only tab.
 * V0.20.4: Import tab static workflow.
-* V0.20.5: Target library alignment.
-* V0.20.6: Source selection and naming preview.
-* V0.20.7: Import action planning.
-* V0.20.8: CLI prompt retirement pass.
-* V0.20.9: Polish and stabilization.
+* V0.20.5: Destination alignment.
+* V0.20.6: Config destination browse helpers.
+* V0.20.7: Source selection and naming preview.
+* V0.20.8: Import action planning.
+* V0.20.9: CLI prompt retirement pass.
+* V0.20.10: Polish and stabilization.
 
 ## Unreleased - V0.19.0 Private Data Config Dialog
 

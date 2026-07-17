@@ -15,6 +15,7 @@ from kia.app_info import APP_VERSION
 from kia.config_dialog import resolve_dialog_path
 from kia.gui_log import GuiLogger
 from kia.gui_state import GuiAppState, LogSettings
+from kia.symbol_resolver import build_empty_symbol_library_text
 
 
 TAB_IDS = {
@@ -984,25 +985,13 @@ class KiCadImportAssistantGui:
         paths_frame.columnconfigure(1, weight=1)
 
         self.library_root_var = tk.StringVar()
-        self.target_library_var = tk.StringVar()
         self.path_variable_var = tk.StringVar()
 
         self.add_path_row(paths_frame, 0, "Library root:", self.library_root_var, "Select Library Root")
 
-        ttk.Label(paths_frame, text="Active destination:").grid(row=1, column=0, sticky="w", pady=4)
-        self.target_library_combo = ttk.Combobox(
-            paths_frame,
-            textvariable=self.target_library_var,
-            values=[],
-            state="readonly",
-            width=36,
-        )
-        self.target_library_combo.grid(row=1, column=1, sticky="ew", padx=(8, 0), pady=4)
-        self.target_library_combo.bind("<<ComboboxSelected>>", self.mark_config_dirty_from_controls)
-
-        ttk.Label(paths_frame, text="Path variable:").grid(row=2, column=0, sticky="w", pady=4)
+        ttk.Label(paths_frame, text="Path variable:").grid(row=1, column=0, sticky="w", pady=4)
         ttk.Entry(paths_frame, textvariable=self.path_variable_var).grid(
-            row=2,
+            row=1,
             column=1,
             sticky="ew",
             padx=(8, 0),
@@ -1042,8 +1031,20 @@ class KiCadImportAssistantGui:
 
         self.add_profile_row(profiles_frame, 0, "Destination key:", self.profile_key_var)
         self.add_profile_row(profiles_frame, 1, "Naming prefix:", self.profile_prefix_var)
-        self.add_profile_row(profiles_frame, 2, "Footprint dir:", self.profile_footprint_dir_var)
-        self.add_profile_row(profiles_frame, 3, "Symbol file:", self.profile_symbol_file_var)
+        self.add_profile_row(
+            profiles_frame,
+            2,
+            "Footprint dir:",
+            self.profile_footprint_dir_var,
+            browse_command=self.browse_profile_footprint_dir,
+        )
+        self.add_profile_row(
+            profiles_frame,
+            3,
+            "Symbol file:",
+            self.profile_symbol_file_var,
+            browse_command=self.browse_profile_symbol_file,
+        )
         self.add_profile_row(profiles_frame, 4, "Nickname:", self.profile_nickname_var)
         self.add_profile_row(profiles_frame, 5, "Schema profile:", self.profile_schema_profile_var)
 
@@ -1452,6 +1453,7 @@ class KiCadImportAssistantGui:
         row: int,
         label: str,
         value_var: tk.StringVar,
+        browse_command=None,
     ) -> None:
         ttk.Label(parent, text=label).grid(row=row, column=1, sticky="w", pady=4)
         ttk.Entry(parent, textvariable=value_var).grid(
@@ -1461,6 +1463,13 @@ class KiCadImportAssistantGui:
             padx=(8, 0),
             pady=4,
         )
+
+        if browse_command is not None:
+            ttk.Button(
+                parent,
+                text="Browse...",
+                command=browse_command,
+            ).grid(row=row, column=3, padx=(8, 0), pady=4)
 
     def choose_folder_for_var(self, value_var: tk.StringVar, title: str) -> None:
         initial_value = value_var.get().strip()
@@ -1474,6 +1483,108 @@ class KiCadImportAssistantGui:
         if selected_folder:
             value_var.set(selected_folder)
             self.mark_config_dirty_from_controls()
+
+    def config_library_root_path(self) -> Path:
+        library_root = self.library_root_var.get().strip()
+
+        if library_root:
+            return resolve_dialog_path(library_root)
+
+        return Path.home()
+
+    def destination_footprint_path(self) -> Path:
+        footprint_dir = self.profile_footprint_dir_var.get().strip()
+        library_root = self.config_library_root_path()
+
+        if footprint_dir:
+            path = Path(footprint_dir)
+            if path.is_absolute():
+                return path
+
+            return library_root / path
+
+        return library_root
+
+    def path_value_relative_to(self, path: Path, root: Path) -> str:
+        try:
+            return path.resolve().relative_to(root.resolve()).as_posix()
+        except (OSError, ValueError):
+            return str(path)
+
+    def browse_profile_footprint_dir(self) -> None:
+        library_root = self.config_library_root_path()
+        current_footprint_path = self.destination_footprint_path()
+        initial_dir = current_footprint_path if current_footprint_path.exists() else library_root
+
+        selected_folder = filedialog.askdirectory(
+            title="Select Footprint .pretty Folder",
+            initialdir=str(initial_dir),
+        )
+
+        if not selected_folder:
+            return
+
+        selected_path = Path(selected_folder)
+        self.profile_footprint_dir_var.set(self.path_value_relative_to(selected_path, library_root))
+
+        if selected_path.suffix.lower() != ".pretty":
+            self.set_status("Footprint folder selected, but it is not a .pretty folder.", "warning")
+
+        self.apply_symbol_file_candidate_for_footprint_dir(selected_path)
+        self.mark_config_dirty_from_controls()
+
+    def apply_symbol_file_candidate_for_footprint_dir(self, footprint_path: Path) -> None:
+        candidate = footprint_path / f"{footprint_path.stem}.kicad_sym"
+        self.profile_symbol_file_var.set(self.path_value_relative_to(candidate, footprint_path))
+
+        if candidate.exists():
+            self.set_status("Matching symbol library selected.", "success")
+            return
+
+        create_symbol_file = messagebox.askyesno(
+            title="Create Symbol Library",
+            message=(
+                f"No matching symbol library was found.\n\n"
+                f"Create '{candidate.name}' in the selected footprint folder?"
+            ),
+            default=messagebox.NO,
+        )
+
+        if not create_symbol_file:
+            self.set_status("Symbol file name set; file was not created.", "info")
+            return
+
+        try:
+            candidate.write_text(build_empty_symbol_library_text(), encoding="utf-8")
+        except OSError:
+            messagebox.showerror(
+                title="Create Symbol Library Failed",
+                message="Could not create the symbol library. Check folder permissions.",
+            )
+            self.set_status("Symbol library could not be created.", "error")
+            return
+
+        self.set_status("Symbol library created.", "success")
+
+    def browse_profile_symbol_file(self) -> None:
+        footprint_path = self.destination_footprint_path()
+        initial_dir = footprint_path if footprint_path.exists() else self.config_library_root_path()
+
+        selected_file = filedialog.askopenfilename(
+            title="Select Symbol Library",
+            initialdir=str(initial_dir),
+            filetypes=[
+                ("KiCad symbol libraries", "*.kicad_sym"),
+                ("All files", "*.*"),
+            ],
+        )
+
+        if not selected_file:
+            return
+
+        selected_path = Path(selected_file)
+        self.profile_symbol_file_var.set(self.path_value_relative_to(selected_path, footprint_path))
+        self.mark_config_dirty_from_controls()
 
     def bind_config_value_traces(self) -> None:
         tracked_vars = [
@@ -1522,7 +1633,6 @@ class KiCadImportAssistantGui:
             last_config = {}
 
         self.library_root_var.set(str(last_config.get("library_root", "")))
-        self.target_library_var.set(str(last_config.get("target_library", "")))
         self.path_variable_var.set(str(private_data.get("path_variable", "")))
 
     def refresh_profile_listbox(self) -> None:
@@ -1532,14 +1642,13 @@ class KiCadImportAssistantGui:
             self.profile_listbox.insert(tk.END, profile_key)
 
         profile_keys = list(self.profile_listbox.get(0, tk.END))
-        self.target_library_combo["values"] = profile_keys
+        last_config = self.applied_private_data.get("last", {})
+        last_target = last_config.get("target_library", "") if isinstance(last_config, dict) else ""
 
-        target_library = self.target_library_var.get().strip()
-        if target_library not in self.library_profiles and profile_keys:
-            self.target_library_var.set(profile_keys[0])
-
-        if target_library in self.library_profiles:
-            self.select_profile_by_key(target_library)
+        if self.active_profile_key in self.library_profiles:
+            self.select_profile_by_key(self.active_profile_key)
+        elif last_target in self.library_profiles:
+            self.select_profile_by_key(str(last_target))
         elif profile_keys:
             self.select_profile_by_key(profile_keys[0])
         else:
@@ -1583,7 +1692,6 @@ class KiCadImportAssistantGui:
         ):
             return False
 
-        previous_key = self.active_profile_key
         profile_data = {
             "prefix": self.profile_prefix_var.get().strip(),
             "footprint_dir": self.profile_footprint_dir_var.get().strip(),
@@ -1597,9 +1705,6 @@ class KiCadImportAssistantGui:
 
         self.library_profiles[new_key] = profile_data
         self.active_profile_key = new_key
-
-        if self.target_library_var.get().strip() == previous_key:
-            self.target_library_var.set(new_key)
 
         return True
 
@@ -1914,12 +2019,6 @@ class KiCadImportAssistantGui:
         if not self.path_variable_var.get().strip():
             errors.append("Path variable is required.")
 
-        target_library = self.target_library_var.get().strip()
-        if not target_library:
-            errors.append("Active destination is required.")
-        elif target_library not in self.library_profiles:
-            errors.append("Active destination must match a configured destination.")
-
         if not self.library_profiles:
             errors.append("At least one destination is required.")
 
@@ -1950,7 +2049,6 @@ class KiCadImportAssistantGui:
 
         private_data.setdefault("last", {})
         private_data["last"]["library_root"] = self.library_root_var.get().strip()
-        private_data["last"]["target_library"] = self.target_library_var.get().strip()
 
         private_data["path_variable"] = self.path_variable_var.get().strip()
         private_data["libraries"] = {

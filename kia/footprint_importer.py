@@ -659,15 +659,14 @@ def add_import_metadata_properties(
     """
     Add hidden import/review metadata properties to the copied footprint.
 
-    These properties make imported footprints searchable and clearly mark
-    validation work that still needs to be performed.
+    These properties make imported footprints searchable and mark them as
+    imported items that still need review.
     """
     text = footprint_path.read_text(encoding="utf-8")
 
     properties_to_add = {
         "ImportedBy": f"kicad-import-assistant {importer_version}",
         "ImportStatus": "NEEDS_REVIEW",
-        "Needs3DModelValidation": "YES",
     }
 
     blocks_to_add = []
