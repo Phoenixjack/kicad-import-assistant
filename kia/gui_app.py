@@ -16,6 +16,7 @@ from kia.config_dialog import resolve_dialog_path
 from kia.gui_log import GuiLogger
 from kia.gui_state import GuiAppState, LogSettings
 from kia.symbol_resolver import build_empty_symbol_library_text
+from kia.workflow_input import classify_import_source_selection
 
 
 TAB_IDS = {
@@ -906,7 +907,25 @@ class KiCadImportAssistantGui:
         if not selected_files:
             return
 
-        self.selected_import_files = [Path(file_path) for file_path in selected_files]
+        selected_paths = [Path(file_path) for file_path in selected_files]
+
+        try:
+            classify_import_source_selection(selected_paths)
+        except ValueError as error:
+            messagebox.showerror(
+                title="Invalid Import Source",
+                message=str(error),
+            )
+            self.logger.warning(
+                "Invalid import source selection.",
+                details=str(error),
+                category="import",
+                function_name="select_import_files_action",
+            )
+            return
+
+        self.selected_import_files = selected_paths
+        self.save_import_source_folder_preference(selected_paths[0].parent)
         self.mark_import_dirty_from_controls()
         self.refresh_import_static_view()
         self.set_status("Import selection loaded for preview.", "info")
@@ -915,6 +934,33 @@ class KiCadImportAssistantGui:
             category="import",
             function_name="select_import_files_action",
         )
+
+    def save_import_source_folder_preference(self, source_folder: Path) -> None:
+        private_data = self.read_private_data_for_gui()
+
+        if private_data is None:
+            self.logger.warning(
+                "Import source folder was not saved because private data is invalid.",
+                category="config",
+                function_name="save_import_source_folder_preference",
+            )
+            return
+
+        private_data.setdefault("last", {})
+        private_data["last"]["source_folder"] = str(source_folder)
+
+        try:
+            self.write_private_data_for_gui(private_data)
+        except OSError:
+            self.logger.warning(
+                "Import source folder could not be saved.",
+                details="Check private data file permissions.",
+                category="config",
+                function_name="save_import_source_folder_preference",
+            )
+            return
+
+        self.applied_private_data = private_data
 
     def clear_import_selection_action(self) -> None:
         self.selected_import_files = []
@@ -1058,44 +1104,120 @@ class KiCadImportAssistantGui:
     def update_import_action_table(self, selected: dict[str, Path | str | None]) -> None:
         self.import_action_tree.delete(*self.import_action_tree.get_children())
         base_name = self.generated_base_name_var.get().strip() or "[base-name]"
-        targets = self.import_target_preview_paths(base_name)
+        targets = self.import_target_preview_items(base_name, selected)
 
         for item_type in IMPORT_ITEM_TYPES:
             source_value = selected.get(item_type)
+            target_info = targets[item_type]
             if source_value is not None:
                 source_name = self.import_source_display_name(source_value)
-                status = self.import_source_status(source_value)
-                action = "Preview only"
+                status = target_info["status"]
+                action = target_info["action"]
             elif selected.get("Zip") is not None:
                 source_name = "-"
-                status = "Missing"
+                status = "No source"
                 action = "Skip"
             else:
                 source_name = "-"
-                status = "Missing"
+                status = "No source"
                 action = "Skip"
 
             self.import_action_tree.insert(
                 "",
                 "end",
-                values=(item_type, source_name, targets[item_type], status, action),
+                values=(item_type, source_name, target_info["display"], status, action),
             )
 
-    def import_target_preview_paths(self, base_name: str) -> dict[str, str]:
+    def import_target_preview_paths(self, base_name: str, selected: dict[str, Path | str | None] | None = None) -> dict[str, str]:
+        preview_items = self.import_target_preview_items(base_name, selected or {})
+        return {
+            item_type: item["display"]
+            for item_type, item in preview_items.items()
+        }
+
+    def import_target_preview_items(
+        self,
+        base_name: str,
+        selected: dict[str, Path | str | None],
+    ) -> dict[str, dict[str, object]]:
         target_settings = self.current_import_target_settings()
 
         symbol_file = target_settings.get("symbol_file", "[symbol-library].kicad_sym")
         footprint_dir = target_settings.get("footprint_dir", "[footprint-library].pretty")
+        model_suffix = self.selected_model_suffix(selected)
+
+        targets = {
+            "Symbol": self.build_target_preview_item(str(footprint_dir), str(symbol_file), selected.get("Symbol") is not None),
+            "Footprint": self.build_target_preview_item(str(footprint_dir), f"{base_name}.kicad_mod", selected.get("Footprint") is not None),
+            "3D Model": self.build_target_preview_item(str(footprint_dir), f"{base_name}{model_suffix}", selected.get("3D Model") is not None),
+        }
+
+        return targets
+
+    def selected_model_suffix(self, selected: dict[str, Path | str | None]) -> str:
+        model_source = selected.get("3D Model")
+
+        if model_source is None:
+            return ".step"
+
+        suffix = Path(str(model_source)).suffix.lower()
+
+        if suffix in {".step", ".stp"}:
+            return suffix
+
+        return ".step"
+
+    def build_target_preview_item(
+        self,
+        footprint_dir: str,
+        filename: str,
+        has_source: bool,
+    ) -> dict[str, object]:
+        display = f"{footprint_dir}/{filename}" if footprint_dir else filename
+        target_path = self.resolve_preview_target_path(footprint_dir, filename)
+        target_exists = target_path.exists() if target_path is not None else False
+
+        if not has_source:
+            status = "No source"
+            action = "Skip"
+        elif target_exists:
+            status = "Exists"
+            action = "Prompt"
+        else:
+            status = "New"
+            action = "Create"
 
         return {
-            "Symbol": str(symbol_file),
-            "Footprint": f"{footprint_dir}/{base_name}.kicad_mod",
-            "3D Model": f"{footprint_dir}/{base_name}.step",
+            "display": display,
+            "path": target_path,
+            "exists": target_exists,
+            "status": status,
+            "action": action,
         }
+
+    def resolve_preview_target_path(self, footprint_dir: str, filename: str) -> Path | None:
+        last_config = self.applied_private_data.get("last", {})
+        library_root = last_config.get("library_root", "") if isinstance(last_config, dict) else ""
+
+        if not library_root:
+            return None
+
+        root_path = resolve_dialog_path(str(library_root))
+        footprint_path = Path(footprint_dir)
+
+        if not footprint_path.is_absolute():
+            footprint_path = root_path / footprint_path
+
+        filename_path = Path(filename)
+
+        if filename_path.is_absolute():
+            return filename_path
+
+        return footprint_path / filename_path
 
     def update_import_output_preview(self, selected: dict[str, Path | str | None]) -> None:
         base_name = self.generated_base_name_var.get().strip() or "[base-name]"
-        targets = self.import_target_preview_paths(base_name)
+        targets = self.import_target_preview_paths(base_name, selected)
         destination = self.import_target_library_var.get().strip() or "[destination]"
         lines = [
             f"Destination: {destination}",
@@ -1137,12 +1259,33 @@ class KiCadImportAssistantGui:
             lines.append("Preview ready: naming fields have required values.")
 
         selected_count = sum(1 for item_type in IMPORT_ITEM_TYPES if selected.get(item_type) is not None)
+        missing_source_types = [
+            item_type
+            for item_type in IMPORT_ITEM_TYPES
+            if selected.get(item_type) is None
+        ]
         if selected.get("Zip") is not None:
             lines.append(f"ZIP selected; recognized import items: {selected_count}.")
         elif selected_count == 0:
             lines.append("No recognized KiCad import files selected.")
         else:
             lines.append(f"Recognized import items: {selected_count}.")
+
+        if missing_source_types:
+            lines.append("Missing source items will be skipped: " + ", ".join(missing_source_types) + ".")
+
+        base_name = self.generated_base_name_var.get().strip() or "[base-name]"
+        target_items = self.import_target_preview_items(base_name, selected)
+        existing_targets = [
+            item_type
+            for item_type, target_info in target_items.items()
+            if selected.get(item_type) is not None and bool(target_info["exists"])
+        ]
+
+        if existing_targets:
+            lines.append("Existing targets will require replace/merge decisions later: " + ", ".join(existing_targets) + ".")
+        elif selected_count:
+            lines.append("No existing targets detected for selected source items.")
 
         lines.append("Apply Import is intentionally disabled in this milestone.")
         return lines

@@ -2,7 +2,7 @@
 
 This file describes the current capabilities and known limitations of KiCad Import Assistant.
 
-Current version: **Unreleased V0.20.7 Metadata property preview branch**
+Current version: **Unreleased V0.20.8 Source selection and naming preview branch**
 
 Current development branch: `feature/main-gui-import-workflow`
 

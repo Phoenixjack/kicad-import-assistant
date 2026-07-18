@@ -1,5 +1,28 @@
 # Version History
 
+## Unreleased - V0.20.8 Source Selection and Naming Preview
+
+Feature branch: `feature/main-gui-import-workflow`
+
+Improves GUI Import-tab preview behavior for selected source files and generated targets.
+
+Changes:
+* Reuses the CLI source-selection classifier so the GUI rejects invalid ZIP/loose-file combinations.
+* Remembers the selected import source folder in ignored private data for the next GUI file picker.
+* Preserves `.step` versus `.stp` model suffixes in target previews.
+* Updates Import Actions so Status describes target state (`New`, `Exists`, or `No source`) and Action previews `Create`, `Prompt`, or `Skip`.
+* Checks target existence against `last.library_root` when possible.
+* Adds validation messages for skipped missing source items and existing target collisions.
+* Bumps app version to `0.20.8`.
+
+Tested:
+* `python -m py_compile kicad_import_assistant.py` passes.
+* `python -m py_compile kicad_import_assistant_gui.py` passes.
+* `python -m compileall -f -q kia kicad_import_assistant.py kicad_import_assistant_gui.py` passes.
+
+Current limitations:
+* GUI import execution is not wired yet.
+
 ## Unreleased - V0.20.7 Metadata Property Preview
 
 Feature branch: `feature/main-gui-import-workflow`
