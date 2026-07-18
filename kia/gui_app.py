@@ -33,6 +33,14 @@ PRIVATE_DATA_EXAMPLE_PATH = Path(__file__).resolve().parent.parent / "kicad_impo
 NAMING_SCHEMA_PATH = Path(__file__).resolve().parent.parent / "kicad_import_naming_schema.json"
 DEFAULT_API_NAMES = ["mouser", "digikey", "octopart_nexar", "snapeda"]
 IMPORT_ITEM_TYPES = ["Symbol", "Footprint", "3D Model"]
+METADATA_PROPERTY_FIELDS = [
+    "description",
+    "keywords",
+]
+METADATA_PROPERTY_NAMES = {
+    "description": "Description",
+    "keywords": "Keywords",
+}
 LIBRARY_PROFILE_FIELDS = [
     "prefix",
     "footprint_dir",
@@ -342,6 +350,9 @@ class KiCadImportAssistantGui:
         self.import_item_status_vars = {}
         self.naming_field_vars = {}
         self.naming_field_controls = {}
+        self.metadata_field_vars = {}
+        self.metadata_dirty_fields = set()
+        self._metadata_autofill_in_progress = False
 
         source_frame = ttk.LabelFrame(self.import_tab, text="A. Import Source", padding=12)
         source_frame.grid(row=0, column=0, sticky="ew", pady=8)
@@ -367,18 +378,7 @@ class KiCadImportAssistantGui:
             command=self.clear_import_selection_action,
         ).grid(row=0, column=3, padx=(8, 0), pady=4)
 
-        ttk.Label(source_frame, text="Destination:").grid(row=1, column=0, sticky="w", pady=4)
-        self.import_target_library_var = tk.StringVar()
-        self.import_target_library_combo = ttk.Combobox(
-            source_frame,
-            textvariable=self.import_target_library_var,
-            values=self.target_library_keys(),
-            state="readonly",
-        )
-        self.import_target_library_combo.grid(row=1, column=1, sticky="ew", padx=(8, 0), pady=4)
-        self.import_target_library_combo.bind("<<ComboboxSelected>>", self.on_import_target_library_changed)
-
-        for row, item_type in enumerate(IMPORT_ITEM_TYPES, start=2):
+        for row, item_type in enumerate(IMPORT_ITEM_TYPES, start=1):
             source_var = tk.StringVar(value="None selected")
             status_var = tk.StringVar(value="Not selected")
             self.import_item_source_vars[item_type] = source_var
@@ -398,19 +398,32 @@ class KiCadImportAssistantGui:
         naming_frame.grid(row=1, column=0, sticky="ew", pady=8)
         naming_frame.columnconfigure(1, weight=1)
         naming_frame.columnconfigure(3, weight=1)
+        naming_frame.columnconfigure(5, weight=1)
 
         for field_name in self.import_naming_fields():
             self.naming_field_vars[field_name] = tk.StringVar()
 
+        ttk.Label(naming_frame, text="Destination:").grid(row=0, column=0, sticky="w", pady=4)
+        self.import_target_library_var = tk.StringVar()
+        self.import_target_library_combo = ttk.Combobox(
+            naming_frame,
+            textvariable=self.import_target_library_var,
+            values=self.target_library_keys(),
+            state="readonly",
+            width=14,
+        )
+        self.import_target_library_combo.grid(row=0, column=1, sticky="ew", pady=4)
+        self.import_target_library_combo.bind("<<ComboboxSelected>>", self.on_import_target_library_changed)
+
         for index, field_name in enumerate(self.import_display_fields()):
             if field_name == "mpn":
                 row = 0
-                label_column = 0
-                value_column = 1
+                label_column = 2
+                value_column = 3
             else:
                 adjusted_index = index - 1 if "mpn" in self.import_display_fields() else index
-                row = 1 + (adjusted_index // 2)
-                label_column = 0 if adjusted_index % 2 == 0 else 2
+                row = 1 + (adjusted_index // 3)
+                label_column = (adjusted_index % 3) * 2
                 value_column = label_column + 1
 
             value_var = self.naming_field_vars[field_name]
@@ -429,13 +442,19 @@ class KiCadImportAssistantGui:
                     text="API Lookup",
                     state="disabled",
                 )
-                self.api_lookup_button.grid(row=row, column=2, sticky="w", padx=(16, 0), pady=4)
+                self.api_lookup_button.grid(row=row, column=4, columnspan=2, sticky="w", padx=(16, 0), pady=4)
                 ToolTip(self.api_lookup_button, "Future feature: search configured APIs and fill naming fields.")
 
             value_var.trace_add("write", self.update_import_preview_from_trace)
 
-        actions_frame = ttk.LabelFrame(self.import_tab, text="C. Import Actions", padding=12)
-        actions_frame.grid(row=2, column=0, sticky="ew", pady=8)
+        metadata_frame = ttk.LabelFrame(self.import_tab, text="C. Metadata Properties", padding=12)
+        metadata_frame.grid(row=2, column=0, sticky="ew", pady=8)
+        metadata_frame.columnconfigure(1, weight=1)
+        metadata_frame.columnconfigure(3, weight=1)
+        self.build_import_metadata_fields(metadata_frame)
+
+        actions_frame = ttk.LabelFrame(self.import_tab, text="D. Import Actions", padding=12)
+        actions_frame.grid(row=3, column=0, sticky="ew", pady=8)
         actions_frame.columnconfigure(0, weight=1)
         action_columns = ("item", "source", "target", "status", "action")
         self.import_action_tree = ttk.Treeview(
@@ -454,8 +473,8 @@ class KiCadImportAssistantGui:
         self.import_action_tree.column("action", width=110, stretch=False)
         self.import_action_tree.grid(row=0, column=0, sticky="ew")
 
-        preview_frame = ttk.LabelFrame(self.import_tab, text="D. Output Preview / Validation Summary", padding=12)
-        preview_frame.grid(row=3, column=0, sticky="ew", pady=8)
+        preview_frame = ttk.LabelFrame(self.import_tab, text="E. Output Preview / Validation Summary", padding=12)
+        preview_frame.grid(row=4, column=0, sticky="ew", pady=8)
         preview_frame.columnconfigure(1, weight=1)
 
         ttk.Label(preview_frame, text="Generated base name:").grid(row=0, column=0, sticky="w", pady=4)
@@ -523,6 +542,124 @@ class KiCadImportAssistantGui:
 
         return field_name.replace("_", " ").title()
 
+    def naming_value(self, field_name: str) -> str:
+        value_var = self.naming_field_vars.get(field_name)
+
+        if value_var is None:
+            return ""
+
+        return value_var.get().strip()
+
+    def metadata_autofill_value(self, field_name: str) -> str:
+        if field_name == "description":
+            return self.build_metadata_description()
+
+        if field_name == "keywords":
+            return self.build_metadata_keywords()
+
+        return ""
+
+    def build_metadata_description(self) -> str:
+        family = self.naming_value("family")
+        role = self.naming_value("role")
+        mount = self.naming_value("mount")
+        orientation = self.naming_value("orientation")
+        pin_count = self.naming_value("size")
+        pitch = self.naming_value("pitch")
+        base = self.naming_value("base")
+        feature = self.naming_value("feature")
+        mpn = self.naming_value("mpn")
+
+        subject_parts = []
+        if family:
+            subject_parts.append(family)
+        if role:
+            subject_parts.append(role.lower())
+        subject_parts.append("connector" if family == "HDMI" else "component")
+
+        description = " ".join(subject_parts).strip()
+
+        qualifier_parts = []
+        if mount and orientation:
+            qualifier_parts.append(f"{mount} {orientation}")
+        elif mount:
+            qualifier_parts.append(mount)
+        elif orientation:
+            qualifier_parts.append(orientation)
+
+        if pin_count:
+            qualifier_parts.append(f"{pin_count} pin")
+
+        if pitch:
+            qualifier_parts.append(f"{pitch} pitch")
+
+        if qualifier_parts:
+            description = f"{description}, {', '.join(qualifier_parts)}" if description else ", ".join(qualifier_parts)
+
+        detail_parts = [value for value in [base, feature, mpn] if value]
+        if detail_parts:
+            description = f"{description}, {', '.join(detail_parts)}" if description else ", ".join(detail_parts)
+
+        if description:
+            return description[0].upper() + description[1:]
+
+        return ""
+
+    def build_metadata_keywords(self) -> str:
+        keywords = []
+
+        for field_name in [
+            "family",
+            "role",
+            "mount",
+            "orientation",
+            "size",
+            "pitch",
+            "base",
+            "feature",
+            "mpn",
+        ]:
+            value = self.naming_value(field_name)
+            if value and value not in keywords:
+                keywords.append(value)
+
+        return " ".join(keywords)
+
+    def refresh_import_metadata_autofill(self) -> None:
+        if not self.metadata_field_vars:
+            return
+
+        self._metadata_autofill_in_progress = True
+        try:
+            for field_name, value_var in self.metadata_field_vars.items():
+                if field_name in self.metadata_dirty_fields:
+                    continue
+
+                value_var.set(self.metadata_autofill_value(field_name))
+        finally:
+            self._metadata_autofill_in_progress = False
+
+    def update_metadata_from_trace(self, field_name: str) -> None:
+        if self._metadata_autofill_in_progress:
+            return
+
+        if not self._import_controls_ready:
+            return
+
+        self.metadata_dirty_fields.add(field_name)
+        self.mark_import_dirty_from_controls()
+        self.refresh_import_static_view()
+
+    def nonblank_metadata_properties(self) -> dict[str, str]:
+        metadata = {}
+
+        for field_name, value_var in self.metadata_field_vars.items():
+            value = value_var.get().strip()
+            if value:
+                metadata[METADATA_PROPERTY_NAMES[field_name]] = value
+
+        return metadata
+
     def add_import_naming_control(
         self,
         parent: ttk.Frame,
@@ -538,16 +675,42 @@ class KiCadImportAssistantGui:
                 parent,
                 textvariable=value_var,
                 values=values,
-                width=24,
+                width=14,
             )
         else:
-            control = ttk.Entry(parent, textvariable=value_var)
+            control = ttk.Entry(parent, textvariable=value_var, width=16)
 
         control.grid(row=row, column=column, sticky="ew", pady=4)
         self.naming_field_controls[field_name] = control
 
         if field_name == "library" and isinstance(control, ttk.Combobox):
             control.bind("<<ComboboxSelected>>", self.on_import_library_changed)
+
+    def build_import_metadata_fields(self, parent: ttk.Frame) -> None:
+        for field_name in METADATA_PROPERTY_FIELDS:
+            value_var = tk.StringVar()
+            self.metadata_field_vars[field_name] = value_var
+
+            row = METADATA_PROPERTY_FIELDS.index(field_name)
+            ttk.Label(parent, text=f"{METADATA_PROPERTY_NAMES[field_name]}:").grid(
+                row=row,
+                column=0,
+                sticky="w",
+                pady=4,
+            )
+            ttk.Entry(parent, textvariable=value_var).grid(
+                row=row,
+                column=1,
+                columnspan=3,
+                sticky="ew",
+                padx=(8, 0),
+                pady=4,
+            )
+
+            value_var.trace_add(
+                "write",
+                lambda *_args, metadata_field=field_name: self.update_metadata_from_trace(metadata_field),
+            )
 
     def import_field_values(self, field_name: str) -> list[str]:
         schema = self.naming_schema or self.read_naming_schema_for_gui() or {}
@@ -756,7 +919,11 @@ class KiCadImportAssistantGui:
     def clear_import_selection_action(self) -> None:
         self.selected_import_files = []
         self._import_controls_ready = False
+        self.metadata_dirty_fields.clear()
         for value_var in self.naming_field_vars.values():
+            value_var.set("")
+
+        for value_var in self.metadata_field_vars.values():
             value_var.set("")
 
         self.apply_default_import_values()
@@ -834,6 +1001,7 @@ class KiCadImportAssistantGui:
         selected = self.classify_selected_import_files()
         self.update_import_source_display(selected)
         self.update_generated_base_name()
+        self.refresh_import_metadata_autofill()
         self.update_import_action_table(selected)
         self.update_import_output_preview(selected)
 
@@ -935,6 +1103,9 @@ class KiCadImportAssistantGui:
             f"Footprint: {targets['Footprint']}",
             f"3D Model: {targets['3D Model']}",
         ]
+        metadata_count = len(self.nonblank_metadata_properties())
+        if metadata_count:
+            lines.append(f"Metadata properties: {metadata_count} nonblank")
         self.import_output_preview_var.set("\n".join(lines))
 
         validation_lines = self.import_validation_lines(selected)

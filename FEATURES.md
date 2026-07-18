@@ -2,7 +2,7 @@
 
 This file describes the current capabilities and known limitations of KiCad Import Assistant.
 
-Current version: **Unreleased V0.20.6 Config destination browse helpers branch**
+Current version: **Unreleased V0.20.7 Metadata property preview branch**
 
 Current development branch: `feature/main-gui-import-workflow`
 
@@ -50,10 +50,11 @@ V0.20.3  Schema read-only tab
 V0.20.4  Import tab static workflow
 V0.20.5  Destination alignment
 V0.20.6  Config destination browse helpers
-V0.20.7  Source selection and naming preview
-V0.20.8  Import action planning
-V0.20.9  CLI prompt retirement pass
-V0.20.10 Polish and stabilization
+V0.20.7  Metadata property preview
+V0.20.8  Source selection and naming preview
+V0.20.9  Import action planning
+V0.20.10 CLI prompt retirement pass
+V0.20.11 Polish and stabilization
 ```
 
 The CLI workflow remains the stable import path while GUI behavior is built and tested.

@@ -1,5 +1,31 @@
 # Version History
 
+## Unreleased - V0.20.7 Metadata Property Preview
+
+Feature branch: `feature/main-gui-import-workflow`
+
+Adds editable GUI metadata-property previews derived from the current naming fields.
+
+Changes:
+* Adds an Import-tab Metadata Properties section.
+* Adds editable `Description` and `Keywords` fields.
+* Auto-fills metadata fields from basename inputs until the user manually edits a metadata field.
+* Generates Description as a concise sentence-style preview and Keywords as token-style search terms.
+* Reflows the Configure Base Name section into a compact three-column layout.
+* Moves Destination into Configure Base Name next to MPN and API Lookup.
+* Shows the count of nonblank metadata properties in the output preview.
+* Keeps metadata preview GUI-only; properties are not written during import execution yet.
+* Bumps app version to `0.20.7`.
+
+Tested:
+* `python -m py_compile kicad_import_assistant.py` passes.
+* `python -m py_compile kicad_import_assistant_gui.py` passes.
+* `python -m compileall -f -q kia kicad_import_assistant.py kicad_import_assistant_gui.py` passes.
+
+Current limitations:
+* GUI import execution is not wired yet.
+* Metadata-property writing is not wired yet.
+
 ## Unreleased - V0.20.6 Config Destination Browse Helpers
 
 Feature branch: `feature/main-gui-import-workflow`
@@ -192,10 +218,11 @@ Planned V0.20.x follow-up:
 * V0.20.4: Import tab static workflow.
 * V0.20.5: Destination alignment.
 * V0.20.6: Config destination browse helpers.
-* V0.20.7: Source selection and naming preview.
-* V0.20.8: Import action planning.
-* V0.20.9: CLI prompt retirement pass.
-* V0.20.10: Polish and stabilization.
+* V0.20.7: Metadata property preview.
+* V0.20.8: Source selection and naming preview.
+* V0.20.9: Import action planning.
+* V0.20.10: CLI prompt retirement pass.
+* V0.20.11: Polish and stabilization.
 
 ## Unreleased - V0.19.0 Private Data Config Dialog
 
