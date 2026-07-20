@@ -482,6 +482,27 @@ Planned near-term work:
 * Add workflows for linking existing symbols/models to newly imported footprints.
 * Continue polishing normal/debug output boundaries as new workflow stages are added.
 
+## Shared Configuration / KMFDM Interop Goals
+
+Future KIA and KMFDM versions should avoid making users maintain the same local KiCad settings twice.
+
+Areas that may eventually be shared or imported between the tools:
+* library root
+* KiCad path variable
+* user-defined library structures
+* import destinations / library profiles
+* schema profile assignments
+* API provider configuration and keys
+
+Possible approaches:
+* Let KMFDM detect a nearby KIA checkout or known KIA private-data file and offer to copy compatible settings.
+* Add a shared user-level config layer for values that genuinely apply to both tools.
+* Keep application-specific settings separate when the concepts diverge.
+* Map KIA naming schema/profile ideas into KMFDM policies where useful, especially for auditing libraries that were not imported through KIA.
+* Preserve user-defined library layouts instead of assuming one personal layout or the KiCad standard libraries.
+
+KiCad standard libraries should be treated as read-only unless a future workflow explicitly supports copying selected symbols or footprints into user-owned libraries.
+
 ## Future Metadata Enrichment Goals
 
 Future versions may add optional online metadata enrichment.

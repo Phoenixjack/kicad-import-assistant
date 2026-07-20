@@ -7,6 +7,7 @@ Feature branch: `feature/main-gui-import-workflow`
 Adds GUI-side per-item import action planning without wiring import execution.
 
 Changes:
+* Adds a future-goals note for shared KIA/KMFDM configuration and interop.
 * Replaces the static Import Actions table with per-item action controls.
 * Adds action options for Symbol, Footprint, and 3D Model rows based on source presence and target state.
 * Defaults footprint/model replacements to `Skip` when targets already exist.
