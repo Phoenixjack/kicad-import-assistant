@@ -2,7 +2,7 @@
 
 This file describes the current capabilities and known limitations of KiCad Import Assistant.
 
-Current version: **Unreleased V0.20.8 Source selection and naming preview branch**
+Current version: **Unreleased V0.20.9 Import action planning branch**
 
 Current development branch: `feature/main-gui-import-workflow`
 
@@ -24,7 +24,7 @@ The GUI shell currently provides:
 * A separate `GuiAppState` object for GUI/session state.
 * A separate `GuiLogger` for GUI log entries and status-strip messages.
 * Optional rolling file logging in the ignored `logs/` folder.
-* Import-tab static workflow preview for source selection, target-library selection, ZIP member filename preview, naming fields, action rows, output preview, and validation summary.
+* Import-tab static workflow preview for source selection, target-library selection, ZIP member filename preview, naming fields, per-item action planning, output preview, and validation summary.
 * Config-tab editing for local paths, target libraries, path variable, API keys, and diagnostics settings.
 * Vertical scrolling in all main tabs for smaller window sizes.
 * Schema-tab browsing for naming-schema field order, required fields, token sets, library families, and library-specific token overrides.

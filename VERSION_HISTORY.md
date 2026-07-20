@@ -1,5 +1,30 @@
 # Version History
 
+## Unreleased - V0.20.9 Import Action Planning
+
+Feature branch: `feature/main-gui-import-workflow`
+
+Adds GUI-side per-item import action planning without wiring import execution.
+
+Changes:
+* Replaces the static Import Actions table with per-item action controls.
+* Adds action options for Symbol, Footprint, and 3D Model rows based on source presence and target state.
+* Defaults footprint/model replacements to `Skip` when targets already exist.
+* Defaults new footprint/model targets to `Import`.
+* Defaults symbol rows to `Merge` or `Create + Merge` when a symbol source exists.
+* Adds selected-action summaries to the validation preview.
+* Keeps Apply Import disabled; no target-library writes are wired yet.
+* Bumps app version to `0.20.9`.
+
+Tested:
+* `python -m py_compile kicad_import_assistant.py` passes.
+* `python -m py_compile kicad_import_assistant_gui.py` passes.
+* `python -m compileall -f -q kia kicad_import_assistant.py kicad_import_assistant_gui.py` passes.
+
+Current limitations:
+* GUI import execution is not wired yet.
+* Import actions are preview/planning controls only.
+
 ## Unreleased - V0.20.8 Source Selection and Naming Preview
 
 Feature branch: `feature/main-gui-import-workflow`

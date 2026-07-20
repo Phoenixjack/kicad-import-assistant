@@ -34,6 +34,13 @@ PRIVATE_DATA_EXAMPLE_PATH = Path(__file__).resolve().parent.parent / "kicad_impo
 NAMING_SCHEMA_PATH = Path(__file__).resolve().parent.parent / "kicad_import_naming_schema.json"
 DEFAULT_API_NAMES = ["mouser", "digikey", "octopart_nexar", "snapeda"]
 IMPORT_ITEM_TYPES = ["Symbol", "Footprint", "3D Model"]
+IMPORT_ACTION_CHOICES = {
+    "skip": "Skip",
+    "import": "Import",
+    "replace": "Replace",
+    "merge": "Merge",
+    "create_merge": "Create + Merge",
+}
 METADATA_PROPERTY_FIELDS = [
     "description",
     "keywords",
@@ -354,6 +361,11 @@ class KiCadImportAssistantGui:
         self.metadata_field_vars = {}
         self.metadata_dirty_fields = set()
         self._metadata_autofill_in_progress = False
+        self.import_action_source_vars = {}
+        self.import_action_target_vars = {}
+        self.import_action_status_vars = {}
+        self.import_action_choice_vars = {}
+        self.import_action_combos = {}
 
         source_frame = ttk.LabelFrame(self.import_tab, text="A. Import Source", padding=12)
         source_frame.grid(row=0, column=0, sticky="ew", pady=8)
@@ -456,23 +468,50 @@ class KiCadImportAssistantGui:
 
         actions_frame = ttk.LabelFrame(self.import_tab, text="D. Import Actions", padding=12)
         actions_frame.grid(row=3, column=0, sticky="ew", pady=8)
-        actions_frame.columnconfigure(0, weight=1)
-        action_columns = ("item", "source", "target", "status", "action")
-        self.import_action_tree = ttk.Treeview(
-            actions_frame,
-            columns=action_columns,
-            show="headings",
-            height=3,
-        )
-        for column in action_columns:
-            self.import_action_tree.heading(column, text=column.title())
+        actions_frame.columnconfigure(1, weight=1)
+        actions_frame.columnconfigure(2, weight=1)
 
-        self.import_action_tree.column("item", width=85, stretch=False)
-        self.import_action_tree.column("source", width=150, stretch=True)
-        self.import_action_tree.column("target", width=180, stretch=True)
-        self.import_action_tree.column("status", width=90, stretch=False)
-        self.import_action_tree.column("action", width=110, stretch=False)
-        self.import_action_tree.grid(row=0, column=0, sticky="ew")
+        for column, heading in enumerate(["Item", "Source", "Target", "Status", "Action"]):
+            ttk.Label(actions_frame, text=heading).grid(row=0, column=column, sticky="w", padx=(0, 8), pady=(0, 4))
+
+        for row, item_type in enumerate(IMPORT_ITEM_TYPES, start=1):
+            self.import_action_source_vars[item_type] = tk.StringVar(value="-")
+            self.import_action_target_vars[item_type] = tk.StringVar(value="-")
+            self.import_action_status_vars[item_type] = tk.StringVar(value="No source")
+            self.import_action_choice_vars[item_type] = tk.StringVar(value=IMPORT_ACTION_CHOICES["skip"])
+
+            ttk.Label(actions_frame, text=item_type).grid(row=row, column=0, sticky="w", padx=(0, 8), pady=3)
+            ttk.Label(actions_frame, textvariable=self.import_action_source_vars[item_type]).grid(
+                row=row,
+                column=1,
+                sticky="ew",
+                padx=(0, 8),
+                pady=3,
+            )
+            ttk.Label(actions_frame, textvariable=self.import_action_target_vars[item_type]).grid(
+                row=row,
+                column=2,
+                sticky="ew",
+                padx=(0, 8),
+                pady=3,
+            )
+            ttk.Label(actions_frame, textvariable=self.import_action_status_vars[item_type]).grid(
+                row=row,
+                column=3,
+                sticky="w",
+                padx=(0, 8),
+                pady=3,
+            )
+            action_combo = ttk.Combobox(
+                actions_frame,
+                textvariable=self.import_action_choice_vars[item_type],
+                values=[IMPORT_ACTION_CHOICES["skip"]],
+                state="readonly",
+                width=14,
+            )
+            action_combo.grid(row=row, column=4, sticky="ew", pady=3)
+            action_combo.bind("<<ComboboxSelected>>", self.on_import_action_changed)
+            self.import_action_combos[item_type] = action_combo
 
         preview_frame = ttk.LabelFrame(self.import_tab, text="E. Output Preview / Validation Summary", padding=12)
         preview_frame.grid(row=4, column=0, sticky="ew", pady=8)
@@ -660,6 +699,13 @@ class KiCadImportAssistantGui:
                 metadata[METADATA_PROPERTY_NAMES[field_name]] = value
 
         return metadata
+
+    def selected_import_actions(self) -> dict[str, str]:
+        return {
+            item_type: self.import_action_choice_vars[item_type].get()
+            for item_type in IMPORT_ITEM_TYPES
+            if item_type in self.import_action_choice_vars
+        }
 
     def add_import_naming_control(
         self,
@@ -1102,7 +1148,6 @@ class KiCadImportAssistantGui:
         self.generated_base_name_var.set("_".join(parts))
 
     def update_import_action_table(self, selected: dict[str, Path | str | None]) -> None:
-        self.import_action_tree.delete(*self.import_action_tree.get_children())
         base_name = self.generated_base_name_var.get().strip() or "[base-name]"
         targets = self.import_target_preview_items(base_name, selected)
 
@@ -1111,22 +1156,73 @@ class KiCadImportAssistantGui:
             target_info = targets[item_type]
             if source_value is not None:
                 source_name = self.import_source_display_name(source_value)
-                status = target_info["status"]
-                action = target_info["action"]
             elif selected.get("Zip") is not None:
                 source_name = "-"
-                status = "No source"
-                action = "Skip"
             else:
                 source_name = "-"
-                status = "No source"
-                action = "Skip"
 
-            self.import_action_tree.insert(
-                "",
-                "end",
-                values=(item_type, source_name, target_info["display"], status, action),
+            action_options = self.import_action_options_for_item(item_type, source_value, target_info)
+            action_default = self.default_import_action_for_item(item_type, source_value, target_info)
+            current_action = self.import_action_choice_vars[item_type].get()
+
+            self.import_action_source_vars[item_type].set(source_name)
+            self.import_action_target_vars[item_type].set(str(target_info["display"]))
+            self.import_action_status_vars[item_type].set(str(target_info["status"]))
+            self.import_action_combos[item_type]["values"] = action_options
+            self.import_action_combos[item_type].configure(
+                state="readonly" if len(action_options) > 1 else "disabled"
             )
+
+            if current_action in action_options:
+                self.import_action_choice_vars[item_type].set(current_action)
+            else:
+                self.import_action_choice_vars[item_type].set(action_default)
+
+    def import_action_options_for_item(
+        self,
+        item_type: str,
+        source_value: Path | str | None,
+        target_info: dict[str, object],
+    ) -> list[str]:
+        if source_value is None:
+            return [IMPORT_ACTION_CHOICES["skip"]]
+
+        if item_type == "Symbol":
+            if target_info["exists"]:
+                return [IMPORT_ACTION_CHOICES["merge"], IMPORT_ACTION_CHOICES["skip"]]
+
+            return [IMPORT_ACTION_CHOICES["create_merge"], IMPORT_ACTION_CHOICES["skip"]]
+
+        if target_info["exists"]:
+            return [IMPORT_ACTION_CHOICES["skip"], IMPORT_ACTION_CHOICES["replace"]]
+
+        return [IMPORT_ACTION_CHOICES["import"], IMPORT_ACTION_CHOICES["skip"]]
+
+    def default_import_action_for_item(
+        self,
+        item_type: str,
+        source_value: Path | str | None,
+        target_info: dict[str, object],
+    ) -> str:
+        if source_value is None:
+            return IMPORT_ACTION_CHOICES["skip"]
+
+        if item_type == "Symbol":
+            if target_info["exists"]:
+                return IMPORT_ACTION_CHOICES["merge"]
+
+            return IMPORT_ACTION_CHOICES["create_merge"]
+
+        if target_info["exists"]:
+            return IMPORT_ACTION_CHOICES["skip"]
+
+        return IMPORT_ACTION_CHOICES["import"]
+
+    def on_import_action_changed(self, event: tk.Event | None = None) -> None:
+        del event
+        self.mark_import_dirty_from_controls()
+        selected = self.classify_selected_import_files()
+        self.update_import_output_preview(selected)
 
     def import_target_preview_paths(self, base_name: str, selected: dict[str, Path | str | None] | None = None) -> dict[str, str]:
         preview_items = self.import_target_preview_items(base_name, selected or {})
@@ -1179,20 +1275,16 @@ class KiCadImportAssistantGui:
 
         if not has_source:
             status = "No source"
-            action = "Skip"
         elif target_exists:
-            status = "Exists"
-            action = "Prompt"
+            status = "Library exists" if filename.endswith(".kicad_sym") else "Exists"
         else:
-            status = "New"
-            action = "Create"
+            status = "Library missing" if filename.endswith(".kicad_sym") else "New"
 
         return {
             "display": display,
             "path": target_path,
             "exists": target_exists,
             "status": status,
-            "action": action,
         }
 
     def resolve_preview_target_path(self, footprint_dir: str, filename: str) -> Path | None:
@@ -1283,9 +1375,29 @@ class KiCadImportAssistantGui:
         ]
 
         if existing_targets:
-            lines.append("Existing targets will require replace/merge decisions later: " + ", ".join(existing_targets) + ".")
+            lines.append("Existing targets detected: " + ", ".join(existing_targets) + ".")
         elif selected_count:
             lines.append("No existing targets detected for selected source items.")
+
+        selected_actions = self.selected_import_actions()
+        planned_actions = [
+            f"{item_type}: {action}"
+            for item_type, action in selected_actions.items()
+            if action != IMPORT_ACTION_CHOICES["skip"]
+        ]
+        skipped_actions = [
+            item_type
+            for item_type, action in selected_actions.items()
+            if action == IMPORT_ACTION_CHOICES["skip"]
+        ]
+
+        if planned_actions:
+            lines.append("Selected actions: " + "; ".join(planned_actions) + ".")
+        else:
+            lines.append("Selected actions: all items skipped.")
+
+        if skipped_actions:
+            lines.append("Skipped items: " + ", ".join(skipped_actions) + ".")
 
         lines.append("Apply Import is intentionally disabled in this milestone.")
         return lines
