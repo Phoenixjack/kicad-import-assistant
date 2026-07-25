@@ -490,6 +490,7 @@ Areas that may eventually be shared or imported between the tools:
 * library root
 * KiCad path variable
 * user-defined library structures
+* library layout profiles
 * import destinations / library profiles
 * schema profile assignments
 * API provider configuration and keys
@@ -498,8 +499,15 @@ Possible approaches:
 * Let KMFDM detect a nearby KIA checkout or known KIA private-data file and offer to copy compatible settings.
 * Add a shared user-level config layer for values that genuinely apply to both tools.
 * Keep application-specific settings separate when the concepts diverge.
+* Add first-run and repair guided setup so missing local config files can be recreated from executable-shipped defaults and a selected library root.
+* Let setup scan a selected library root and suggest likely layout profiles, while treating autodetection as advisory rather than authoritative.
 * Map KIA naming schema/profile ideas into KMFDM policies where useful, especially for auditing libraries that were not imported through KIA.
 * Preserve user-defined library layouts instead of assuming one personal layout or the KiCad standard libraries.
+
+Likely shared layout profiles:
+* flat-contained symbols, footprints, and models in each `.pretty` folder
+* separated symbol, footprint, and model subfolders under each library family
+* split top-level roots for symbols, footprints, and models
 
 KiCad standard libraries should be treated as read-only unless a future workflow explicitly supports copying selected symbols or footprints into user-owned libraries.
 

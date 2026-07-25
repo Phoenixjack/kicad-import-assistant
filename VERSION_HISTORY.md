@@ -8,6 +8,7 @@ Adds GUI-side per-item import action planning without wiring import execution.
 
 Changes:
 * Adds a future-goals note for shared KIA/KMFDM configuration and interop.
+* Adds future-goals notes for shared library layout profiles, first-run repair setup, and advisory layout autodetection.
 * Replaces the static Import Actions table with per-item action controls.
 * Adds action options for Symbol, Footprint, and 3D Model rows based on source presence and target state.
 * Defaults footprint/model replacements to `Skip` when targets already exist.
