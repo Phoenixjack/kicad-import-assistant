@@ -1,9 +1,10 @@
 ---
+layout: default
 title: KiCad Import Assistant
 description: Official project site for KiCad Import Assistant, a desktop utility for importing vendor KiCad libraries into local KiCad library structures.
 ---
 
-## KiCad Import Assistant
+# KiCad Import Assistant
 
 KiCad Import Assistant is a standalone Python desktop utility for importing vendor-provided KiCad footprints, symbols, and 3D models into a local KiCad library structure.
 
