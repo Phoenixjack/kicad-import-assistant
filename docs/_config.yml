@@ -1,3 +1,5 @@
 title: KiCad Import Assistant
 description: Official project site for KiCad Import Assistant.
 theme: minima
+header_pages:
+  - privacy.md
